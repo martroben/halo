@@ -59,7 +59,7 @@ SELECT
 FROM FLOWDETAIL
 	LEFT JOIN FLOWHEADER ON FLOWHEADER.FHID = FLOWDETAIL.FDFHID
 
-See what  Custom Field names correspond to different lookup id-s:
+See what Custom Field names and values correspond to different lookup id-s:
 SELECT
 	FILookup,
 	FIName,
