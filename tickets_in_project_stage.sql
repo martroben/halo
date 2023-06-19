@@ -41,7 +41,7 @@ LOOKUP: Info about custom field values
 WorkflowHistory.whflowid = 11 - Workflow type is "Deal workflow"
 WorkflowHistory.whmovedto = 5 - Workflow step is "Project creation"
 LOOKUP.fid = 137 - Custom field "Pipeline"
-TSTATUS.Tstatus = 26 - ticket status is "Notify Projects".
+TSTATUS.Tstatus = 26 - ticket status is "Notify Projects"
 ISNULL(FAULTS.FDeleted, 0) = 0 - Ticket not deleted (FDeleted either NULL or False)
 
 
@@ -61,18 +61,18 @@ FROM FLOWDETAIL
 
 See what Custom Field names and values correspond to different lookup id-s:
 SELECT
-	FILookup,
-	FIName,
-	FILabel
+	FILookup AS [field lookup code],
+	FIName AS [field code name],
+	FILabel AS [field description]
 FROM FIELDINFO
 WHERE FILookup NOT IN (0, -1)
 
 See all existing ticket status id-s:
 SELECT
-	Tstatus,
-	tstatusdesc,
-	TstatusSeq,
-	tshortname
+	Tstatus [status id],
+	tstatusdesc [status description],
+	TstatusSeq [status placement],
+	tshortname [status code name]
 FROM TSTATUS
 
 */
@@ -84,8 +84,7 @@ SELECT
     FAULTS.Symptom AS [Summary],
     UNAME.uname AS [Agent Name],
     TSTATUS.tstatusdesc AS [Status],
-    FORMAT(FAULTS.dateoccured, 'dd/MM/yyyy')
-        AS [Date Created],
+    FORMAT(FAULTS.dateoccured, 'dd/MM/yyyy') AS [Date Created],
     (SELECT FORMAT(MAX(whmoveddate), 'dd/MM/yyyy')
         FROM WorkflowHistory
         WHERE 
@@ -97,10 +96,11 @@ SELECT
     (SELECT fvalue
         FROM LOOKUP
         WHERE fcode = FAULTS.CFPipeline AND fid = 137)
-        AS [Pipeline]
+        AS [Sales Region]
 FROM FAULTS
     LEFT JOIN UNAME ON FAULTS.Assignedtoint = UNAME.Unum
     LEFT JOIN TSTATUS ON FAULTS.Status = TSTATUS.Tstatus
     LEFT JOIN AREA ON AREA.Aarea = FAULTS.Areaint
-WHERE (ISNULL(FAULTS.FDeleted, 0) = 0)
+WHERE
+	(ISNULL(FAULTS.FDeleted, 0) = 0)
     AND TSTATUS.Tstatus = 26
