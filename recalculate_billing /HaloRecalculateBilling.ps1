@@ -8,11 +8,11 @@ $tenant= ""
 
 ## Halo API Details - End
 
-$startdate = "2023-07-19T23%3A00%3A00.000Z"
-$enddate = "2023-07-20T23%3A00%3A00.000Z"
+$startdate = "2023-05-10T23:00:00.000Z"
+$enddate = "2023-05-11T23:00:00.000Z"
 
 
-$ticketsAllurl = $apiurl+"/tickets?startdate="+$startdate+"&enddate="+$enddate+"&ticketidonly=true"
+$urlTickets = $apiurl+"/tickets/" # + "?ticketidonly=true" + "&startdate="+$startdate+"&enddate="+$enddate
 $actionsBaseURL =  $apiurl+"/Actions";
 $actionsURL =  $apiurl+"/Actions?excludesys=true";
 
@@ -23,7 +23,7 @@ if ($tenant -ne ""){
 
 $tokenendpoint = $authurl+"/token?"+$tenant
 Write-Host  $tokenendpoint
-write-host $ticketsAllurl
+write-host $urlTickets
 ## Get Token - Start
 
 $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
@@ -40,14 +40,23 @@ $token = $response.access_token
 
 ## Get All Invoice - Start
 
-$headersTickets = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
-$headersTickets.Add("Authorization", "Bearer "+$token)
-$headersTickets.Add("halo-app-name","halo-web-application")
+$headersTickets = @{
+    Authorization = "Bearer " + $token
+    "halo-app-name" = "halo-web-application"
+}
 
-$responseTickets = Invoke-RestMethod $ticketsAllurl -Method 'GET' -Headers $headersTickets  
+
+$bodyTickets = @{
+    ticketidonly = $true
+    startdate = $startdate
+    enddate = $enddate
+}
+
+$responseTickets = Invoke-RestMethod -Method 'GET' -Uri $urlTickets -Headers $headersTickets -Body $bodyTickets
 $jsonTickets = ConvertTo-Json -InputObject $responseTickets   
 
 ## Get All Invoice - End
+
 
 ## Check each Invoice for External Invoice Number - Start
 
