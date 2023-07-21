@@ -1,22 +1,23 @@
 
-################
-# Static input #
-################
+#################
+# Static inputs #
+#################
 # Halo API Details
-$clientid = ""
+$clientId = ""
 $secret = ""
-$apiurl = ""
-$authurl = ""
-$tenant= ""
+$apiUrl = ""
+$authUrl = ""
+$tenant = ""
 
 # Other
-$dateFormat = "yyyy-MM-ddTHH:mm:ss"   # Date format for Halo API requests
+$dateFormat = "yyyy-MM-ddTHH:mm:ss"   # Date format in Halo API requests
 $gmtOffset = 3   # Time zone (e.g. 3 = GMT+3)
 
 
-##################
-# Variable input #
-##################
+###################
+# Variable inputs #
+###################
+# Comment out if not needed
 
 # Ticket date range
 $startDate = "2010-05-11 14:00"
@@ -57,10 +58,21 @@ $headersTickets = @{
     "halo-app-name" = "halo-web-application"
 }
 
-# Convert date range to UTC time and to correct string format for API request
-$startDateString = (Get-Date -Date $startDate).AddHours(-$gmtOffset).ToString($dateFormat)
-$endDateString = (Get-Date -Date $endDate).AddHours(-$gmtOffset).ToString($dateFormat)
-$requestTypeString = $requestTypeIds -join ","
+# Only apply filters if variables are defined
+if ($startDate -and $endDate) {
+    # Convert date range to UTC time and to correct string format for API request
+    $startDateString = (Get-Date -Date $startDate).AddHours(-$gmtOffset).ToString($dateFormat)
+    $endDateString = (Get-Date -Date $endDate).AddHours(-$gmtOffset).ToString($dateFormat)
+} else {
+    $startDateString, $endDateString = $null
+}
+
+if ($requestTypeIds) {
+    $requestTypeString = $requestTypeIds -join ","
+} else {
+    $requestTypeString = $null
+}
+
 
 $bodyTickets = @{
     startdate = $startDateString
@@ -68,9 +80,10 @@ $bodyTickets = @{
     requesttype = $requestTypeString
 }
 
-$responseTickets = Invoke-RestMethod -Method 'GET' -Uri $urlTickets -Headers $headersTickets -Body $bodyTickets
-$jsonTickets = ConvertTo-Json -InputObject $responseTickets
+# Remove null values from request parameters
+($bodyTickets.GetEnumerator() | ? { -not $_.Value }) | % { $bodyTickets.Remove($_.Name) }
 
+$responseTickets = Invoke-RestMethod -Method 'GET' -Uri $urlTickets -Headers $headersTickets -Body $bodyTickets
 
 
 
