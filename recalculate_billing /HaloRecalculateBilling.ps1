@@ -9,19 +9,24 @@ $apiurl = ""
 $authurl = ""
 $tenant= ""
 
+# Other
+$dateFormat = "yyyy-MM-ddTHH:mm:ss"   # Date format for Halo API requests
+$gmtOffset = 3   # Time zone (e.g. 3 = GMT+3)
+
 
 ##################
 # Variable input #
 ##################
 # Ticket date range
-$startdate = "2023-05-10T23:00:00.000Z"
-$enddate = "2023-05-11T23:00:00.000Z"
+$startDate = "2023-05-11 14:00"
+$endDate = "2023-05-11 15:00"
 
 
 ###########################
 # Get authorization token #
 ###########################
-$urlToken = $authurl + "/token"+ "?tenant=" + $tenant
+
+$urlToken = $authUrl + "/token"+ "?tenant=" + $tenant
 $headersToken = @{
     "Content-Type" = "application/x-www-form-urlencoded"
     "Accept" = "application/json"
@@ -29,7 +34,7 @@ $headersToken = @{
 }
 $bodyToken = @{
     "grant_type" = "client_credentials"
-    "client_id" = $clientid
+    "client_id" = $clientId
     "client_secret" = $secret
     "scope" = "all"
 }
@@ -41,15 +46,21 @@ $token = $responseToken.access_token
 ###############
 # Get tickets #
 ###############
-$urlTickets = $apiurl + "/tickets/"
+
+$urlTickets = $apiUrl + "/tickets/"
 $headersTickets = @{
     Authorization = "Bearer " + $token
     "halo-app-name" = "halo-web-application"
 }
+
+# Convert date range to UTC time and to correct string format for API request
+$startDateString = (Get-Date -Date $startDate).AddHours(-$gmtOffset).ToString($dateFormat)
+$endDateString = (Get-Date -Date $endDate).AddHours(-$gmtOffset).ToString($dateFormat)
+
 $bodyTickets = @{
     ticketidonly = $true
-    startdate = $startdate
-    enddate = $enddate
+    startdate = $startDateString
+    enddate = $endDateString
 }
 
 $responseTickets = Invoke-RestMethod -Method 'GET' -Uri $urlTickets -Headers $headersTickets -Body $bodyTickets
