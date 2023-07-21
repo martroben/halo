@@ -1,51 +1,51 @@
-﻿## Halo API Details - Start
 
+################
+# Static input #
+################
+# Halo API Details
 $clientid = ""
 $secret = ""
 $apiurl = ""
 $authurl = ""
 $tenant= ""
 
-## Halo API Details - End
 
+##################
+# Variable input #
+##################
+# Ticket date range
 $startdate = "2023-05-10T23:00:00.000Z"
 $enddate = "2023-05-11T23:00:00.000Z"
 
 
-$urlTickets = $apiurl+"/tickets/" # + "?ticketidonly=true" + "&startdate="+$startdate+"&enddate="+$enddate
-$actionsBaseURL =  $apiurl+"/Actions";
-$actionsURL =  $apiurl+"/Actions?excludesys=true";
-
-
-if ($tenant -ne ""){
-  $tenant= "tenant="+$tenant
+###########################
+# Get authorization token #
+###########################
+$urlToken = $authurl + "/token"+ "?tenant=" + $tenant
+$headersToken = @{
+    "Content-Type" = "application/x-www-form-urlencoded"
+    "Accept" = "application/json"
+    "halo-app-name" = "halo-web-application"
+}
+$bodyToken = @{
+    "grant_type" = "client_credentials"
+    "client_id" = $clientid
+    "client_secret" = $secret
+    "scope" = "all"
 }
 
-$tokenendpoint = $authurl+"/token?"+$tenant
-Write-Host  $tokenendpoint
-write-host $urlTickets
-## Get Token - Start
+$responseToken = Invoke-RestMethod -Method 'POST' -Uri $urlToken -Headers $headersToken -Body $bodyToken
+$token = $responseToken.access_token
 
-$headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
-$headers.Add("Content-Type", "application/x-www-form-urlencoded")
-$headers.Add("Accept", "application/json")
-$headers.Add("halo-app-name","halo-web-application")
-$body = "grant_type=client_credentials&client_id="+$clientid+"&client_secret="+$secret+"&scope=all"
 
-$response = Invoke-RestMethod $tokenendpoint -Method 'POST' -Headers $headers -Body $body
-
-$token = $response.access_token
-
-## Get Token - End
-
-## Get All Invoice - Start
-
+###############
+# Get tickets #
+###############
+$urlTickets = $apiurl + "/tickets/"
 $headersTickets = @{
     Authorization = "Bearer " + $token
     "halo-app-name" = "halo-web-application"
 }
-
-
 $bodyTickets = @{
     ticketidonly = $true
     startdate = $startdate
@@ -55,12 +55,17 @@ $bodyTickets = @{
 $responseTickets = Invoke-RestMethod -Method 'GET' -Uri $urlTickets -Headers $headersTickets -Body $bodyTickets
 $jsonTickets = ConvertTo-Json -InputObject $responseTickets   
 
-## Get All Invoice - End
 
 
 ## Check each Invoice for External Invoice Number - Start
 
 $unpacked = $jsonTickets | ConvertFrom-Json 
+
+
+$actionsBaseURL =  $apiurl+"/Actions";
+$actionsURL =  $apiurl+"/Actions?excludesys=true";
+
+
 foreach($obj in $unpacked.tickets)
 {
    
