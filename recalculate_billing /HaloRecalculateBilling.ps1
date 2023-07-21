@@ -17,9 +17,13 @@ $gmtOffset = 3   # Time zone (e.g. 3 = GMT+3)
 ##################
 # Variable input #
 ##################
+
 # Ticket date range
-$startDate = "2023-05-11 14:00"
+$startDate = "2010-05-11 14:00"
 $endDate = "2023-05-11 15:00"
+
+# Request types
+$requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
 
 ###########################
@@ -56,15 +60,17 @@ $headersTickets = @{
 # Convert date range to UTC time and to correct string format for API request
 $startDateString = (Get-Date -Date $startDate).AddHours(-$gmtOffset).ToString($dateFormat)
 $endDateString = (Get-Date -Date $endDate).AddHours(-$gmtOffset).ToString($dateFormat)
+$requestTypeString = $requestTypeIds -join ","
 
 $bodyTickets = @{
-    ticketidonly = $true
     startdate = $startDateString
     enddate = $endDateString
+    requesttype = $requestTypeString
 }
 
 $responseTickets = Invoke-RestMethod -Method 'GET' -Uri $urlTickets -Headers $headersTickets -Body $bodyTickets
-$jsonTickets = ConvertTo-Json -InputObject $responseTickets   
+$jsonTickets = ConvertTo-Json -InputObject $responseTickets
+
 
 
 
