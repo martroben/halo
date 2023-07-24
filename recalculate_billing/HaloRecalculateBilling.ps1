@@ -84,7 +84,12 @@ $tokenBody = @{
 # POST request - authorization token
 Write-Host "Getting authorization token"
 $tokenResponse = Invoke-RestMethod -Method 'POST' -Uri $tokenUrl -Headers $tokenHeaders -Body $tokenBody
+
 $token = $tokenResponse.access_token
+$headers = @{
+    "Authorization" = "Bearer " + $token
+    "halo-app-name" = "halo-web-application"
+}
 
 
 ###############
@@ -92,11 +97,6 @@ $token = $tokenResponse.access_token
 ###############
 
 $ticketsUrl = $apiUrl + "/tickets/"
-$ticketsHeaders = @{
-    "Authorization" = "Bearer " + $token
-    "halo-app-name" = "halo-web-application"
-}
-
 $ticketsBody = @{
     ticketidonly = $true
     dateStart = $dateStartString
@@ -108,35 +108,31 @@ $ticketsBody = @{
 
 # GET request - tickets
 Write-Host "Getting tickets"
-$ticketsResponse = Invoke-RestMethod -Method 'GET' -Uri $ticketsUrl -Headers $ticketsHeaders -Body $ticketsBody
+$ticketsResponse = Invoke-RestMethod -Method 'GET' -Uri $ticketsUrl -Headers $headers -Body $ticketsBody
 
 # Sort ticket ids in ascending order to be able to restart the process if it crashes
 # Filter ticket ids by input criteria
 $tickets = $ticketsResponse.tickets | Sort-Object id | Where-Object { $_.id -ge $ticketIdStart}
-Write-Host "Found" $tickets.Count "tickets that match input criteria"
+Write-Host "Found $($tickets.Count) tickets that match input criteria"
 
 
 #######################
 # Recalculate billing #
 #######################
 
-$actionsUrl =  $apiUrl + "/actions/"
-$actionsHeaders = @{
-    "Authorization" = "Bearer " + $token
-    "halo-app-name" = "halo-web-application"
-}
-
 $ticketsPerLap = 20
 $lapTimes = @()
 $timer = [Diagnostics.Stopwatch]::StartNew()
 foreach ($ticket in $tickets) {
     $ticketIndex = [array]::IndexOf($tickets, $ticket) + 1   # Ticket counter
+
+    $actionsUrl =  $apiUrl + "/actions/"
     $actionsBody = @{
         excludesys = $true
         ticket_id = $ticket.id
     }
     # GET request - ticket actions
-    $actionsResponse = Invoke-RestMethod -Method 'GET' -Uri $actionsUrl -Headers $actionsHeaders -Body $actionsBody
+    $actionsResponse = Invoke-RestMethod -Method 'GET' -Uri $actionsUrl -Headers $headers -Body $actionsBody
 
     # Recalculate billing for each action
     foreach ($action in $actionsResponse.actions) {
@@ -150,13 +146,13 @@ foreach ($ticket in $tickets) {
                 recalculate_billing = $true
             }
             $recalculateBillingBodyJson = ConvertTo-Json @($recalculateBillingBody)   # Convert as array, because Halo POST takes only arrayed json
-
+            
             # POST request - recalculate billing on action
-            $recalculateBillingResponse = Invoke-RestMethod -Method 'POST' -Uri $actionsUrl -Headers $actionsHeaders -Body $recalculateBillingBodyJson -ContentType "application/json"
-            Write-Host $actionString "- recalculated" -fore green
+            $recalculateBillingResponse = Invoke-RestMethod -Method 'POST' -Uri $actionsUrl -Headers $headers -Body $recalculateBillingBodyJson -ContentType "application/json"
+            Write-Host "$actionString - recalculated" -fore green
         }
         else {
-            Write-Host $actionString "- not recalculated, because no time entered on action" -fore red
+            Write-Host "$actionString - not recalculated, because no time entered on action" -fore red
         }
     }
     if ($ticketIndex % $ticketsPerLap -eq 0) {
@@ -166,7 +162,7 @@ foreach ($ticket in $tickets) {
         $lapAverageMinutes = ($lapTimes | Select -Last 10 | Measure-Object -Average).Average
         $ticketsPerMinute = [Math]::Round($ticketsPerLap / $lapAverageMinutes, 0)
         $timeRemainingMinutes = [Math]::Round(($tickets.Count - $ticketIndex) / $ticketsPerMinute, 2)
-    	Write-Host "Run time:" $runtimeMinutes "minutes, average tempo:" $ticketsPerMinute "tickets per minute, estimated time remaining:" $timeRemainingMinutes "minutes"
+    	Write-Host "Run time: $runtimeMinutes minutes, average tempo: $ticketsPerMinute tickets per minute, estimated time remaining: $timeRemainingMinutes minutes"
     }
 }
 
