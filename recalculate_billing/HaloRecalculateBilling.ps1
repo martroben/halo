@@ -37,11 +37,11 @@ $dateStart = "2010-05-11 14:00"
 $dateEnd = "2023-05-11 15:00"
 
 # Request types (comment out if not needed)
-$requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
+# $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
 # Process tickets with ids starting from... (comment out if not needed)
 # Intersects (doesn't override) date range
-$ticketIdStart = 2500
+# $ticketIdStart = 2500
 
 
 ##################################################
@@ -103,8 +103,7 @@ $ticketsBody = @{
     dateEnd = $dateEndString
     requesttype = $requestTypeIds -join ","
 }
-
-# Remove null values from ticket request GET parameters
+# Remove null values from parameters
 ($ticketsBody.GetEnumerator() | Where-Object { -not $_.Value }) | ForEach-Object { $ticketsBody.Remove($_.Name) }
 
 # GET request - tickets
@@ -114,7 +113,7 @@ $ticketsResponse = Invoke-RestMethod -Method 'GET' -Uri $ticketsUrl -Headers $ti
 # Sort ticket ids in ascending order to be able to restart the process if it crashes
 # Filter ticket ids by input criteria
 $tickets = $ticketsResponse.tickets | Sort-Object id | Where-Object { $_.id -ge $ticketIdStart}
-Write-Host $tickets.Count "tickets found that match input criteria"
+Write-Host "Found" $tickets.Count "tickets that match input criteria"
 
 
 #######################
@@ -127,8 +126,9 @@ $actionsHeaders = @{
     "halo-app-name" = "halo-web-application"
 }
 
+$timer = [Diagnostics.Stopwatch]::StartNew()
 foreach ($ticket in $tickets) {
-    $ticketIndex = [array]::IndexOf($tickets, $ticket) + 1
+    $ticketIndex = [array]::IndexOf($tickets, $ticket) + 1   # Ticket counter
     $actionsBody = @{
         excludesys = $true
         ticket_id = $ticket.id
@@ -142,13 +142,12 @@ foreach ($ticket in $tickets) {
         $actionString = "($ticketIndex/$($tickets.Count)) ticket $($ticket.id) $($ticket.client_name): action id $($action.id)"
 
         if ($action.timetaken -gt 0) {
-            $recalculateBillingBody = @()   # Initialize as an array, because Halo POST request takes only arrayed json
-            $recalculateBillingBody += @{
+            $recalculateBillingBody = @{
                 id = $action.id
                 ticket_id = $ticket.id
                 recalculate_billing = $true
             }
-            $recalculateBillingBodyJson = ConvertTo-Json $recalculateBillingBody
+            $recalculateBillingBodyJson = ConvertTo-Json @($recalculateBillingBody)   # Convert as array, because Halo POST takes only arrayed json
 
             # POST request - recalculate billing on action
             $recalculateBillingResponse = Invoke-RestMethod -Method 'POST' -Uri $actionsUrl -Headers $actionsHeaders -Body $recalculateBillingBodyJson -ContentType "application/json"
@@ -158,4 +157,12 @@ foreach ($ticket in $tickets) {
             Write-Host $actionString "- not recalculated, because no time entered on action" -fore red
         }
     }
+    if ($ticketIndex % 10 -eq 0) {
+        $runtimeMinutes = [Math]::Round($timer.ElapsedMilliseconds / 60e3, 2)
+        $ticketsPerMinute = [Math]::Round($ticketIndex / $runtimeMinutes, 0)
+        $timeRemainingMinutes = [Math]::Round(($tickets.Count - $ticketIndex) / $ticketsPerMinute, 2)
+    	Write-Host "Run time:" $runtimeMinutes "minutes, average tempo:" $ticketsPerMinute "tickets per minute, estimated time remaining:" $timeRemainingMinutes "minutes"
+    }
 }
+
+$timer.Stop()
