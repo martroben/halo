@@ -40,6 +40,7 @@ $dateEnd = "2023-05-11 15:00"
 $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
 # Process tickets with ids starting from... (comment out if not needed)
+# Intersection (not override) with date range
 $ticketIdStart = 2500
 
 
