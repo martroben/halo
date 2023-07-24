@@ -1,29 +1,39 @@
+#######################################################################################################
+##                                                                                                   ##
+##  Script name: HaloRecalculateBilling.ps1                                                          ##
+##  Purpose of script: Re-calculate billing for tickets that have already been "billing batched".    ##
+##                     Workaround for when the same action in Halo portal results in an error.       ##
+##                                                                                                   ##
+##  Notes: Re-factored version of a script provided by Halo.                                         ##
+##         Should work with PS 5.1 and newer.                                                        ##
+##                                                                                                   ##
+##  Author: Mart Roben                                                                               ##
+##  Date Created: 24. Jul 2023                                                                       ##
+##                                                                                                   ##
+##  Copyright: MIT License                                                                           ##
+##  https://github.com/martroben/halo/                                                               ##
+##                                                                                                   ##
+##  Contact: mart@altacom.eu                                                                         ##
+##                                                                                                   ##
+#######################################################################################################
 
-#################
-# Static inputs #
-#################
-# Halo API Details
-$clientId = ""
-$secret = ""
-$apiUrl = ""
-$authUrl = ""
-$tenant = ""
 
-# Other
-$dateFormat = "yyyy-MM-ddTHH:mm:ss"   # Date format in Halo API requests
+##########
+# Inputs #
+##########
+# Halo API credentials
+$clientId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+$secret = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+$tenant = "<your_company>"
+$apiUrl = "https://<your_company>.halopsa.com/api"
+$authUrl = "https://<your_company>.halopsa.com/auth"
+
+# Ticket date range (comment out if not needed)
+$dateStart = "2010-05-11 14:00"
+$dateEnd = "2023-05-11 15:00"
 $gmtOffset = 3   # Time zone (e.g. 3 = GMT+3)
 
-
-###################
-# Variable inputs #
-###################
-# Comment out if not needed
-
-# Ticket date range
-$startDate = "2010-05-11 14:00"
-$endDate = "2023-05-11 15:00"
-
-# Request types
+# Request types (comment out if not needed)
 $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
 
@@ -31,40 +41,45 @@ $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 # Get authorization token #
 ###########################
 
-$urlToken = $authUrl + "/token"+ "?tenant=" + $tenant
-$headersToken = @{
+$tokenUrl = $authUrl + "/token"+ "?tenant=" + $tenant
+$tokenHeaders = @{
     "Content-Type" = "application/x-www-form-urlencoded"
     "Accept" = "application/json"
     "halo-app-name" = "halo-web-application"
 }
-$bodyToken = @{
-    "grant_type" = "client_credentials"
-    "client_id" = $clientId
-    "client_secret" = $secret
-    "scope" = "all"
+
+$tokenBody = @{
+    grant_type = "client_credentials"
+    client_id = $clientId
+    client_secret = $secret
+    scope = "all"
 }
 
-$responseToken = Invoke-RestMethod -Method 'POST' -Uri $urlToken -Headers $headersToken -Body $bodyToken
-$token = $responseToken.access_token
+# POST request - authorization token
+Write-Host "Getting authorization token"
+$tokenResponse = Invoke-RestMethod -Method 'POST' -Uri $tokenUrl -Headers $tokenHeaders -Body $tokenBody
+$token = $tokenResponse.access_token
 
 
 ###############
 # Get tickets #
 ###############
 
-$urlTickets = $apiUrl + "/tickets/"
-$headersTickets = @{
-    Authorization = "Bearer " + $token
+$ticketsUrl = $apiUrl + "/tickets/"
+$ticketsHeaders = @{
+    "Authorization" = "Bearer " + $token
     "halo-app-name" = "halo-web-application"
 }
 
 # Only apply filters if variables are defined
-if ($startDate -and $endDate) {
+if ($dateStart -and $dateEnd) {
     # Convert date range to UTC time and to correct string format for API request
-    $startDateString = (Get-Date -Date $startDate).AddHours(-$gmtOffset).ToString($dateFormat)
-    $endDateString = (Get-Date -Date $endDate).AddHours(-$gmtOffset).ToString($dateFormat)
+    $dateFormat = "yyyy-MM-ddTHH:mm:ss"   # Date format in Halo API requests
+    $dateStartString = (Get-Date -Date $dateStart).AddHours(-$gmtOffset).ToString($dateFormat)
+    $dateEndString = (Get-Date -Date $dateEnd).AddHours(-$gmtOffset).ToString($dateFormat)
 } else {
-    $startDateString, $endDateString = $null
+    $dateStartString = $null
+    $dateEndString = $null
 }
 
 if ($requestTypeIds) {
@@ -73,66 +88,65 @@ if ($requestTypeIds) {
     $requestTypeString = $null
 }
 
-
-$bodyTickets = @{
-    startdate = $startDateString
-    enddate = $endDateString
+$ticketsBody = @{
+    ticketidonly = $true
+    dateStart = $dateStartString
+    dateEnd = $dateEndString
     requesttype = $requestTypeString
 }
 
-# Remove null values from request parameters
-($bodyTickets.GetEnumerator() | ? { -not $_.Value }) | % { $bodyTickets.Remove($_.Name) }
+# Remove null values from ticket request GET parameters
+($ticketsBody.GetEnumerator() | Where-Object { -not $_.Value }) | ForEach-Object { $ticketsBody.Remove($_.Name) }
 
-$responseTickets = Invoke-RestMethod -Method 'GET' -Uri $urlTickets -Headers $headersTickets -Body $bodyTickets
+# GET request - tickets
+Write-Host "Getting tickets"
+$ticketsResponse = Invoke-RestMethod -Method 'GET' -Uri $ticketsUrl -Headers $ticketsHeaders -Body $ticketsBody
 
-
-
-## Check each Invoice for External Invoice Number - Start
-
-$unpacked = $jsonTickets | ConvertFrom-Json 
-
-
-$actionsBaseURL =  $apiurl+"/Actions";
-$actionsURL =  $apiurl+"/Actions?excludesys=true";
+$numberOfTickets = $ticketsResponse.record_count
+Write-Host $numberOfTickets "tickets found that match input criteria"
 
 
-foreach($obj in $unpacked.tickets)
-{
-   
-        #Write-Host ("Ticket Halo ID = " + $obj.id)
-        $actionGet = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
-        $actionGet.Add("Authorization", "Bearer "+$token)
-        $actionGet.Add("Content-Type", "application/json") 
-        $actionGet.Add("halo-app-name","halo-web-application")       
-        
-        $oneActionURL = $actionsURL+"&ticket_id="+$obj.id
-        ##Write-Host ($oneActionURL)
-        $responseActionGet = Invoke-RestMethod $oneActionURL -Method 'GET' -Headers $actionGet 
-        $jsonActions = ConvertTo-Json -InputObject $responseActionGet 
-        
-        $unpackedActions = $jsonActions | ConvertFrom-Json 
-        foreach($obj2 in $unpackedActions.actions)
-        {
-            #Write-Host ("Ticket ID = "+$obj.id+" Action ID = " + $obj2.id)
-            #$timetaken = [Float] $obj2.timetaken
-            if ($obj2.timetaken -gt 0){
-                $actionPost = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
-                $actionPost.Add("Authorization", "Bearer "+$token)
-                $actionPost.Add("Content-Type", "application/json")
-                $actionPost.Add("halo-app-name","halo-web-application")
+#######################
+# Recalculate billing #
+#######################
 
-                $bodyActionPost = '[{"id":'+$obj2.id+',"ticket_id":"'+$obj.id+'","recalculate_billing":true}]'
-
-                $responseActionRecalc = Invoke-RestMethod $actionsBaseURL -Method 'POST' -Headers $actionPost -Body $bodyActionPost
-                $jsonPostResponse = ConvertTo-Json -InputObject $responseActionRecalc 
-                $unpackedPostResponse = $jsonPostResponse | ConvertFrom-Json 
-                write-host("Ticket ID = "+$obj.id+" Action ID = "+$unpackedPostResponse.id+" - recalculated (for Client = "+$obj.client_name+")") -fore green
-            }
-            else{
-               #write-host("Ticket ID = "+$obj.id+" Action ID = "+$obj2.id+" - not recalculated (for Client = "+$obj.client_name+") as no time entered") -fore red
-            }
-        }
-    
+$actionsUrl =  $apiUrl + "/actions/"
+$actionsHeaders = @{
+    "Authorization" = "Bearer " + $token
+    # "Content-Type" = "application/json"
+    "halo-app-name" = "halo-web-application"
 }
 
-## Check each Invoice for External Invoice Number - End 
+foreach ($ticket in $ticketsResponse.tickets) {
+   
+    $ticketIndex = [array]::IndexOf($ticketsResponse.tickets, $ticket) + 1
+    $actionBody = @{
+        excludesys = $true
+        ticket_id = $ticket.id
+    }
+    # GET request - ticket actions
+    $actionResponse = Invoke-RestMethod -Method 'GET' -Uri $actionsUrl -Headers $actionsHeaders -Body $actionBody
+
+    # Recalculate billing for each action
+    foreach ($action in $actionResponse.actions) {
+        # Action identification string for log
+        $actionString = "($ticketIndex/$numberOfTickets) ticket $($ticket.id) $($ticket.client_name): action id $($action.id)"
+
+        if ($action.timetaken -gt 0) {
+            $recalculateBillingBody = @()   # Initialize as an array, because Halo POST request takes only arrayed json
+            $recalculateBillingBody += @{
+                id = $action.id
+                ticket_id = $ticket.id
+                recalculate_billing = $true
+            }
+            $recalculateBillingBodyJson = ConvertTo-Json $recalculateBillingBody
+
+            # POST request - recalculate billing on action
+            $recalculateBillingResponse = Invoke-RestMethod -Method 'POST' -Uri $actionsUrl -Headers $actionsHeaders -Body $recalculateBillingBodyJson -ContentType "application/json"
+            Write-Host $actionString "- recalculated" -fore green
+        }
+        else {
+            Write-Host $actionString "- not recalculated, because no time entered on action" -fore red
+        }
+    }
+}
