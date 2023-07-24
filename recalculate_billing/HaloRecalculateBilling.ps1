@@ -37,11 +37,11 @@ $dateStart = "2010-05-11 14:00"
 $dateEnd = "2023-05-11 15:00"
 
 # Request types (comment out if not needed)
-# $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
+$requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
 # Process tickets with ids starting from... (comment out if not needed)
 # Intersects (doesn't override) date range
-# $ticketIdStart = 2500
+$ticketIdStart = 2500
 
 
 ##################################################
@@ -126,6 +126,8 @@ $actionsHeaders = @{
     "halo-app-name" = "halo-web-application"
 }
 
+$ticketsPerLap = 20
+$lapTimes = @()
 $timer = [Diagnostics.Stopwatch]::StartNew()
 foreach ($ticket in $tickets) {
     $ticketIndex = [array]::IndexOf($tickets, $ticket) + 1   # Ticket counter
@@ -157,9 +159,12 @@ foreach ($ticket in $tickets) {
             Write-Host $actionString "- not recalculated, because no time entered on action" -fore red
         }
     }
-    if ($ticketIndex % 10 -eq 0) {
+    if ($ticketIndex % $ticketsPerLap -eq 0) {
+        # Time stats 4shiz&giggles
         $runtimeMinutes = [Math]::Round($timer.ElapsedMilliseconds / 60e3, 2)
-        $ticketsPerMinute = [Math]::Round($ticketIndex / $runtimeMinutes, 0)
+        $lapTimes += $runtimeMinutes - ($lapTimes | Measure-Object -Sum).Sum
+        $lapAverageMinutes = ($lapTimes | Select -Last 10 | Measure-Object -Average).Average
+        $ticketsPerMinute = [Math]::Round($ticketsPerLap / $lapAverageMinutes, 0)
         $timeRemainingMinutes = [Math]::Round(($tickets.Count - $ticketIndex) / $ticketsPerMinute, 2)
     	Write-Host "Run time:" $runtimeMinutes "minutes, average tempo:" $ticketsPerMinute "tickets per minute, estimated time remaining:" $timeRemainingMinutes "minutes"
     }
