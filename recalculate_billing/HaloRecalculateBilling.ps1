@@ -126,20 +126,21 @@ Write-Host $tickets.Count "tickets found that match input criteria"
 $actionsUrl =  $apiUrl + "/actions/"
 $actionsHeaders = @{
     "Authorization" = "Bearer " + $token
+    # "Content-Type" = "application/json"
     "halo-app-name" = "halo-web-application"
 }
 
 foreach ($ticket in $tickets) {
     $ticketIndex = [array]::IndexOf($tickets, $ticket) + 1
-    $actionBody = @{
+    $actionsBody = @{
         excludesys = $true
         ticket_id = $ticket.id
     }
     # GET request - ticket actions
-    $actionResponse = Invoke-RestMethod -Method 'GET' -Uri $actionsUrl -Headers $actionsHeaders -Body $actionBody
+    $actionsResponse = Invoke-RestMethod -Method 'GET' -Uri $actionsUrl -Headers $actionsHeaders -Body $actionsBody
 
     # Recalculate billing for each action
-    foreach ($action in $actionResponse.actions) {
+    foreach ($action in $actionsResponse.actions) {
         # Action identification string for log
         $actionString = "($ticketIndex/$($tickets.Count)) ticket $($ticket.id) $($ticket.client_name): action id $($action.id)"
 
