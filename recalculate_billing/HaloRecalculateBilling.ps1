@@ -50,6 +50,7 @@ $ticketIdStart = 2500
 
 if ( -not $gmtOffset) { $gmtOffset = 0 }
 if ( -not $ticketIdStart) { $ticketIdStart = 0 }
+if ( -not $requestTypeIds) { $requestTypeIds = $null }
 
 if ($dateStart -and $dateEnd) {
     # Convert date range to UTC time and to correct string format for API request
@@ -59,12 +60,6 @@ if ($dateStart -and $dateEnd) {
 } else {
     $dateStartString = $null
     $dateEndString = $null
-}
-
-if ($requestTypeIds) {
-    $requestTypeString = $requestTypeIds -join ","
-} else {
-    $requestTypeString = $null
 }
 
 
@@ -106,7 +101,7 @@ $ticketsBody = @{
     ticketidonly = $true
     dateStart = $dateStartString
     dateEnd = $dateEndString
-    requesttype = $requestTypeString
+    requesttype = $requestTypeIds -join ","
 }
 
 # Remove null values from ticket request GET parameters
@@ -116,7 +111,8 @@ $ticketsBody = @{
 Write-Host "Getting tickets"
 $ticketsResponse = Invoke-RestMethod -Method 'GET' -Uri $ticketsUrl -Headers $ticketsHeaders -Body $ticketsBody
 
-# Sort tickets ascendingly to be able to restart process if it crashes
+# Sort ticket ids in ascending order to be able to restart the process if it crashes
+# Filter ticket ids by input criteria
 $tickets = $ticketsResponse.tickets | Sort-Object id | Where-Object { $_.id -ge $ticketIdStart}
 Write-Host $tickets.Count "tickets found that match input criteria"
 
