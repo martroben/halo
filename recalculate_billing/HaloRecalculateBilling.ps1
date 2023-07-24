@@ -29,7 +29,7 @@ $tenant = "<your_company>"
 $apiUrl = "https://<your_company>.halopsa.com/api"
 $authUrl = "https://<your_company>.halopsa.com/auth"
 
-# Time zone (e.g. 3 = GMT+3). If in doubt, use 0
+# Time zone - e.g. 3 = GMT+3 (comment out if not needed)
 $gmtOffset = 3 
 
 # Ticket date range (comment out if not needed)
@@ -40,14 +40,15 @@ $dateEnd = "2023-05-11 15:00"
 $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
 # Process tickets with ids starting from... (comment out if not needed)
-# Intersection (not override) with date range
+# Intersects (doesn't override) date range
 $ticketIdStart = 2500
 
 
-###########################################
-# Format / handle missing input variables #
-###########################################
+##################################################
+# Format input variables / handle missing values #
+##################################################
 
+if ( -not $gmtOffset) { $gmtOffset = 0 }
 if ( -not $ticketIdStart) { $ticketIdStart = 0 }
 
 if ($dateStart -and $dateEnd) {
