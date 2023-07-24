@@ -126,12 +126,10 @@ Write-Host $tickets.Count "tickets found that match input criteria"
 $actionsUrl =  $apiUrl + "/actions/"
 $actionsHeaders = @{
     "Authorization" = "Bearer " + $token
-    # "Content-Type" = "application/json"
     "halo-app-name" = "halo-web-application"
 }
 
 foreach ($ticket in $tickets) {
-   
     $ticketIndex = [array]::IndexOf($tickets, $ticket) + 1
     $actionBody = @{
         excludesys = $true
