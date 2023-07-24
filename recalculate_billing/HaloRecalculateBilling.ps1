@@ -2,7 +2,7 @@
 ##                                                                                                   ##
 ##  Script name: HaloRecalculateBilling.ps1                                                          ##
 ##  Purpose of script: Re-calculate billing for tickets that have already been "billing batched".    ##
-##                     Workaround for when the same action in Halo portal results in an error.       ##
+##                     Workaround for when the re-calculation errors out in Halo portal.             ##
 ##                                                                                                   ##
 ##  Notes: Re-factored version of a script provided by Halo.                                         ##
 ##         Should work with PS 5.1 and newer.                                                        ##
@@ -71,7 +71,7 @@ if ($requestTypeIds) {
 # Get authorization token #
 ###########################
 
-$tokenUrl = $authUrl + "/token"+ "?tenant=" + $tenant
+$tokenUrl = $authUrl + "/token" + "?tenant=" + $tenant
 $tokenHeaders = @{
     "Content-Type" = "application/x-www-form-urlencoded"
     "Accept" = "application/json"
@@ -127,7 +127,6 @@ Write-Host $tickets.Count "tickets found that match input criteria"
 $actionsUrl =  $apiUrl + "/actions/"
 $actionsHeaders = @{
     "Authorization" = "Bearer " + $token
-    # "Content-Type" = "application/json"
     "halo-app-name" = "halo-web-application"
 }
 
