@@ -39,6 +39,32 @@ $dateEnd = "2023-05-11 15:00"
 # Request types (comment out if not needed)
 $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
+# Process tickets with ids starting from... (comment out if not needed)
+$ticketIdStart = 2500
+
+
+###########################################
+# Format / handle missing input variables #
+###########################################
+
+if ( -not $ticketIdStart) { $ticketIdStart = 0 }
+
+if ($dateStart -and $dateEnd) {
+    # Convert date range to UTC time and to correct string format for API request
+    $dateFormat = "yyyy-MM-ddTHH:mm:ss"   # Date format in Halo API requests
+    $dateStartString = (Get-Date -Date $dateStart).AddHours(-$gmtOffset).ToString($dateFormat)
+    $dateEndString = (Get-Date -Date $dateEnd).AddHours(-$gmtOffset).ToString($dateFormat)
+} else {
+    $dateStartString = $null
+    $dateEndString = $null
+}
+
+if ($requestTypeIds) {
+    $requestTypeString = $requestTypeIds -join ","
+} else {
+    $requestTypeString = $null
+}
+
 
 ###########################
 # Get authorization token #
@@ -74,23 +100,6 @@ $ticketsHeaders = @{
     "halo-app-name" = "halo-web-application"
 }
 
-# Only apply filters if variables are defined
-if ($dateStart -and $dateEnd) {
-    # Convert date range to UTC time and to correct string format for API request
-    $dateFormat = "yyyy-MM-ddTHH:mm:ss"   # Date format in Halo API requests
-    $dateStartString = (Get-Date -Date $dateStart).AddHours(-$gmtOffset).ToString($dateFormat)
-    $dateEndString = (Get-Date -Date $dateEnd).AddHours(-$gmtOffset).ToString($dateFormat)
-} else {
-    $dateStartString = $null
-    $dateEndString = $null
-}
-
-if ($requestTypeIds) {
-    $requestTypeString = $requestTypeIds -join ","
-} else {
-    $requestTypeString = $null
-}
-
 $ticketsBody = @{
     ticketidonly = $true
     dateStart = $dateStartString
@@ -105,8 +114,9 @@ $ticketsBody = @{
 Write-Host "Getting tickets"
 $ticketsResponse = Invoke-RestMethod -Method 'GET' -Uri $ticketsUrl -Headers $ticketsHeaders -Body $ticketsBody
 
-$numberOfTickets = $ticketsResponse.record_count
-Write-Host $numberOfTickets "tickets found that match input criteria"
+# Sort tickets ascendingly to be able to restart process if it crashes
+$tickets = $ticketsResponse.tickets | Sort-Object id | Where-Object { $_.id -ge $ticketIdStart}
+Write-Host $tickets.Count "tickets found that match input criteria"
 
 
 #######################
@@ -120,9 +130,9 @@ $actionsHeaders = @{
     "halo-app-name" = "halo-web-application"
 }
 
-foreach ($ticket in $ticketsResponse.tickets) {
+foreach ($ticket in $tickets) {
    
-    $ticketIndex = [array]::IndexOf($ticketsResponse.tickets, $ticket) + 1
+    $ticketIndex = [array]::IndexOf($tickets, $ticket) + 1
     $actionBody = @{
         excludesys = $true
         ticket_id = $ticket.id
@@ -133,7 +143,7 @@ foreach ($ticket in $ticketsResponse.tickets) {
     # Recalculate billing for each action
     foreach ($action in $actionResponse.actions) {
         # Action identification string for log
-        $actionString = "($ticketIndex/$numberOfTickets) ticket $($ticket.id) $($ticket.client_name): action id $($action.id)"
+        $actionString = "($ticketIndex/$($tickets.Count)) ticket $($ticket.id) $($ticket.client_name): action id $($action.id)"
 
         if ($action.timetaken -gt 0) {
             $recalculateBillingBody = @()   # Initialize as an array, because Halo POST request takes only arrayed json
