@@ -21,6 +21,7 @@
 ##########
 # Inputs #
 ##########
+
 # Halo API credentials
 $clientId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 $secret = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
@@ -28,10 +29,12 @@ $tenant = "<your_company>"
 $apiUrl = "https://<your_company>.halopsa.com/api"
 $authUrl = "https://<your_company>.halopsa.com/auth"
 
+# Time zone (e.g. 3 = GMT+3). If in doubt, use 0
+$gmtOffset = 3 
+
 # Ticket date range (comment out if not needed)
 $dateStart = "2010-05-11 14:00"
 $dateEnd = "2023-05-11 15:00"
-$gmtOffset = 3   # Time zone (e.g. 3 = GMT+3)
 
 # Request types (comment out if not needed)
 $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
