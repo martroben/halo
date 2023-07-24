@@ -23,6 +23,7 @@
 ##########
 
 # Halo API credentials
+# Necessary permission: read:tickets, edit:tickets. Login type: Agent
 $clientId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 $secret = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 $tenant = "<your_company>"
@@ -33,15 +34,15 @@ $authUrl = "https://<your_company>.halopsa.com/auth"
 $gmtOffset = 3 
 
 # Ticket date range (comment out if not needed)
-$dateStart = "2010-05-11 14:00"
-$dateEnd = "2023-05-11 15:00"
+# $dateStart = "2023-05-01 14:00"
+$dateEnd = "2023-01-01 15:00"
 
 # Request types (comment out if not needed)
-$requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
+# $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
 # Process tickets with ids starting from... (comment out if not needed)
 # Intersects (doesn't override) date range
-$ticketIdStart = 2500
+# $ticketIdStart = 2500
 
 
 ##################################################
@@ -52,9 +53,12 @@ if ( -not $gmtOffset) { $gmtOffset = 0 }
 if ( -not $ticketIdStart) { $ticketIdStart = 0 }
 if ( -not $requestTypeIds) { $requestTypeIds = $null }
 
-if ($dateStart -and $dateEnd) {
+$dateFormat = "yyyy-MM-ddTHH:mm:ss"   # Date format in Halo API requests
+if ($dateStart -or $dateEnd) {
+    # Fun fact: time starts on 1753-01-01 for Halo API
+    if ( -not $dateStart) { $dateStart = (Get-Date -Date "1800-01-01").AddHours($gmtOffset) }
+    if ( -not $dateEnd) { $dateEnd = Get-Date }
     # Convert date range to UTC time and to correct string format for API request
-    $dateFormat = "yyyy-MM-ddTHH:mm:ss"   # Date format in Halo API requests
     $dateStartString = (Get-Date -Date $dateStart).AddHours(-$gmtOffset).ToString($dateFormat)
     $dateEndString = (Get-Date -Date $dateEnd).AddHours(-$gmtOffset).ToString($dateFormat)
 } else {
@@ -99,8 +103,8 @@ $headers = @{
 $ticketsUrl = $apiUrl + "/tickets/"
 $ticketsBody = @{
     ticketidonly = $true
-    dateStart = $dateStartString
-    dateEnd = $dateEndString
+    startdate = $dateStartString
+    enddate = $dateEndString
     requesttype = $requestTypeIds -join ","
 }
 # Remove null values from parameters
