@@ -1,5 +1,6 @@
 /* dev notes
 # 7675
+See all tickets that are in workflow stage "Notify Projects".
 
 #########################
 # TABLES & COLUMNS USED #
