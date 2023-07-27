@@ -82,11 +82,11 @@ SELECT
     USERS.uusername AS [User Name],
     FAULTS.Symptom AS [Title],
     FLOOR(SUM(ACTIONS.ActionChargeHours)) + 
-		  CEILING((SUM(ACTIONS.ActionChargeHours) - FLOOR(SUM(ACTIONS.ActionChargeHours))) * 4) / 4 
-      AS [Charge H],
+        CEILING((SUM(ACTIONS.ActionChargeHours) - FLOOR(SUM(ACTIONS.ActionChargeHours))) * 4) / 4 
+        AS [Charge H],
     FLOOR(SUM(ACTIONS.ActionNonChargeHours)) + 
-		  CEILING((SUM(ACTIONS.ActionNonChargeHours) - FLOOR(SUM(ACTIONS.ActionNonChargeHours))) * 4) / 4 
-      AS [Contract H],
+        CEILING((SUM(ACTIONS.ActionNonChargeHours) - FLOOR(SUM(ACTIONS.ActionNonChargeHours))) * 4) / 4 
+        AS [Contract H],
     ChargeTypes.fvalue AS [Charge Type],
     SITE.CFTransportSiteAndBackKM AS [KM to customer and back],
     FORMAT(MAX(FAULTS.datecleared), 'dd/MM/yyyy') AS [Date Closed],
@@ -97,15 +97,13 @@ FROM FAULTS
     LEFT JOIN USERS ON FAULTS.userid = USERS.Uid
     LEFT JOIN SITE ON FAULTS.sitenumber = SITE.Ssitenum
     LEFT JOIN ACTIONS ON FAULTS.Faultid = ACTIONS.faultid
-	LEFT JOIN APPOINTMENT ON ACTIONS.actionapid = APPOINTMENT.APid
-	LEFT JOIN (SELECT fvalue, fcode FROM LOOKUP WHERE fid = 17)
-		AS ChargeTypes
-		ON ACTIONS.actioncode + 1 = ChargeTypes.fcode
-	LEFT JOIN (SELECT fvalue, fcode FROM LOOKUP WHERE fid = 63 AND fcode = 2)
-		AS AppointmentTypes
-		ON APPOINTMENT.apappointmenttype = AppointmentTypes.fcode
+    LEFT JOIN APPOINTMENT ON ACTIONS.actionapid = APPOINTMENT.APid
+    LEFT JOIN (SELECT fvalue, fcode FROM LOOKUP WHERE fid = 17)
+        AS ChargeTypes ON ACTIONS.actioncode + 1 = ChargeTypes.fcode
+    LEFT JOIN (SELECT fvalue, fcode FROM LOOKUP WHERE fid = 63 AND fcode = 2)
+        AS AppointmentTypes ON APPOINTMENT.apappointmenttype = AppointmentTypes.fcode
 WHERE AREA.Aarea = 121
-	AND ISNULL(FAULTS.FDeleted, 0) = 0
+    AND ISNULL(FAULTS.FDeleted, 0) = 0
     AND ISNULL(ACTIONS.timetaken, 0) <> 0
 GROUP BY
     FAULTS.Faultid,
