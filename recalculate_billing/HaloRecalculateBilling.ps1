@@ -34,15 +34,15 @@ $authUrl = "https://<your_company>.halopsa.com/auth"
 $gmtOffset = 3 
 
 # Ticket date range (comment out if not needed)
-# $dateStart = "2023-05-01 14:00"
+$dateStart = "2023-05-01 14:00"
 $dateEnd = "2023-01-01 15:00"
 
 # Request types (comment out if not needed)
-# $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
+$requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
 # Process tickets with ids starting from... (comment out if not needed)
 # Intersects (doesn't override) date range
-# $ticketIdStart = 2500
+$ticketIdStart = 2500
 
 
 ##################################################
@@ -77,7 +77,6 @@ $tokenHeaders = @{
     "Accept" = "application/json"
     "halo-app-name" = "halo-web-application"
 }
-
 $tokenBody = @{
     grant_type = "client_credentials"
     client_id = $clientId
@@ -85,8 +84,8 @@ $tokenBody = @{
     scope = "all"
 }
 
-# POST request - authorization token
 Write-Host "Getting authorization token"
+# POST request - authorization token
 $tokenResponse = Invoke-RestMethod -Method 'POST' -Uri $tokenUrl -Headers $tokenHeaders -Body $tokenBody
 
 $token = $tokenResponse.access_token
@@ -129,12 +128,12 @@ $lapTimes = @()
 $timer = [Diagnostics.Stopwatch]::StartNew()
 foreach ($ticket in $tickets) {
     $ticketIndex = [array]::IndexOf($tickets, $ticket) + 1   # Ticket counter
-
     $actionsUrl =  $apiUrl + "/actions/"
     $actionsBody = @{
         excludesys = $true
         ticket_id = $ticket.id
     }
+    
     # GET request - ticket actions
     $actionsResponse = Invoke-RestMethod -Method 'GET' -Uri $actionsUrl -Headers $headers -Body $actionsBody
 
@@ -154,13 +153,12 @@ foreach ($ticket in $tickets) {
             # POST request - recalculate billing on action
             $recalculateBillingResponse = Invoke-RestMethod -Method 'POST' -Uri $actionsUrl -Headers $headers -Body $recalculateBillingBodyJson -ContentType "application/json"
             Write-Host "$actionString - recalculated" -fore green
-        }
-        else {
+        } else {
             Write-Host "$actionString - not recalculated, because no time entered on action" -fore red
         }
     }
+    # Time stats 4shiz&giggles
     if ($ticketIndex % $ticketsPerLap -eq 0) {
-        # Time stats 4shiz&giggles
         $runtimeMinutes = [Math]::Round($timer.ElapsedMilliseconds / 60e3, 2)
         $lapTimes += $runtimeMinutes - ($lapTimes | Measure-Object -Sum).Sum
         $lapAverageMinutes = ($lapTimes | Select -Last 10 | Measure-Object -Average).Average
