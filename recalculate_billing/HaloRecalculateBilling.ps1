@@ -30,24 +30,29 @@ $tenant = "<your_company>"
 $apiUrl = "https://<your_company>.halopsa.com/api"
 $authUrl = "https://<your_company>.halopsa.com/auth"
 
-# Time zone - e.g. 3 = GMT+3 (comment out if not needed)
+
+#######################
+# Filtering variables #
+#######################
+# Comment out variables that are not applicable
+
+# Time zone - e.g. 3 = GMT+3
 $gmtOffset = 3 
 
-# Ticket date range (comment out if not needed)
+# Ticket date range
 $dateStart = "2023-05-01 14:00"
 $dateEnd = "2023-01-01 15:00"
 
-# Request types (comment out if not needed)
+# Request types
 $requestTypeIds = 1, 4, 29   # 1 - Incident, 4 - Problem, 29 - Task
 
-# Process tickets with ids starting from... (comment out if not needed)
-# Intersects (doesn't override) date range
+# Process tickets with ids starting from... Intersects (doesn't override) date range
 $ticketIdStart = 2500
 
 
-##################################################
-# Format input variables / handle missing values #
-##################################################
+######################################################
+# Format filtering variables / handle missing values #
+######################################################
 
 if ( -not $gmtOffset) { $gmtOffset = 0 }
 if ( -not $ticketIdStart) { $ticketIdStart = 0 }
@@ -109,8 +114,8 @@ $ticketsBody = @{
 # Remove null values from parameters
 ($ticketsBody.GetEnumerator() | Where-Object { -not $_.Value }) | ForEach-Object { $ticketsBody.Remove($_.Name) }
 
-# GET request - tickets
 Write-Host "Getting tickets"
+# GET request - tickets
 $ticketsResponse = Invoke-RestMethod -Method 'GET' -Uri $ticketsUrl -Headers $headers -Body $ticketsBody
 
 # Sort ticket ids in ascending order to be able to restart the process if it crashes
