@@ -90,8 +90,8 @@ SELECT
     ChargeTypes.fvalue AS [Charge Type],
     SITE.CFTransportSiteAndBackKM AS [KM to customer and back],
     FORMAT(MAX(FAULTS.datecleared), 'dd/MM/yyyy') AS [Date Closed],
-	AppointmentTypes.fvalue AS [Site Visit],
-	ROUND(SUM(ACTIONS.timetaken), 2) AS [Time Taken]
+    AppointmentTypes.fvalue AS [Site Visit],
+    ROUND(SUM(ACTIONS.timetaken), 2) AS [Time Taken]
 FROM FAULTS
     LEFT JOIN AREA ON FAULTS.Areaint = AREA.Aarea
     LEFT JOIN USERS ON FAULTS.userid = USERS.Uid
@@ -111,7 +111,7 @@ GROUP BY
     SITE.sdesc,
     USERS.uusername,
     FAULTS.Symptom,
-	ChargeTypes.fvalue,
+    ChargeTypes.fvalue,
     SITE.CFTransportSiteAndBackKM,
     AppointmentTypes.fvalue
 ORDER BY [Ticket ID] DESC OFFSET 0 ROWS
