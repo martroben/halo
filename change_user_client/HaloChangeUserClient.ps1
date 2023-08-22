@@ -47,7 +47,6 @@ if ( $missingModules ) {
     Import-Module ImportExcel
 }
 
-
 ###########################
 # Get authorization token #
 ###########################
@@ -64,7 +63,6 @@ $tokenBody = @{
     client_secret = $secret
     scope = "all"
 }
-
 Write-Host "Getting authorization token"
 # POST request - authorization token
 $tokenResponse = Invoke-RestMethod -Method 'POST' -Uri $tokenUrl -Headers $tokenHeaders -Body $tokenBody
@@ -74,7 +72,6 @@ $headers = @{
     "Authorization" = "Bearer " + $token
     "halo-app-name" = "halo-web-application"
 }
-
 
 #############
 # Get users #
@@ -96,7 +93,6 @@ while ($continue) {
     $i_page += 1
     $continue = $usersResponse.users.Count
 }
-
 Write-Host "Users found: $($usersRaw.Count)"
 Remove-Variable continue, i_page
 
@@ -197,7 +193,6 @@ foreach ( $user in $usersRaw ) {
         site_name = $user.site_name
         user_id = $user.id }
 }
-
 # Match user info with input xlsx info
 $operations = @()
 foreach ( $inputLine in $inputXlsx ) {
@@ -248,12 +243,11 @@ foreach ( $operation in $operations ) {
 
 # Check for missing user_id and new_site_id
 $unknownUsers = $operations | Where-Object { !$_.user_id }
-$unknownNewSites = $operations | Where-Object { !$_.new_site_id }
-
 $unknownUsersNames = $unknownUsers | ForEach-Object { "$($_.username)@$($_.client_name)/$($_.site_name)" }
-if ( $unknownUsers ) { Write-Warning "Skipping the following Users. No matches found in Halo: $($unknownUsersNames-join ', ')" }
-
+$unknownNewSites = $operations | Where-Object { !$_.new_site_id }
 $unknownNewSitesNames = $unknownNewSites | ForEach-Object { "$($_.new_client_name)/$($_.new_site_name)" } | Get-Unique
+
+if ( $unknownUsers ) { Write-Warning "Skipping the following Users. No matches found in Halo: $($unknownUsersNames-join ', ')" }
 if ( $unknownNewSites ) { Write-Warning "Skipping the following target Sites. No matches found in Halo: $($unknownNewSitesNames -join ', ')" }
 
 # Discard operations with invalid user_id or new_site_id
@@ -276,8 +270,8 @@ foreach ($operation in $operationsToApply) {
         site_id = $operation.new_site_id
         _isnew = $false
     }
-
-    $operationBodyJson = ConvertTo-Json @($operationBody)   # Convert as array, because Halo POST takes only arrayed json
+    $operationBodyJson = ConvertTo-Json @($operationBody)
+    # Convert as array because Halo POST^ takes only arrayed json
     
     try {
         # POST request - modify client/site on user
