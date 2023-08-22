@@ -39,12 +39,12 @@ $inputXlsxPath = "sample_input.xlsx"
 $requiredModules = @(
     "ImportExcel"
 )
-$missingModules = $requiredModules | Where-Object { !($_ -in (Get-Module -ListAvailable).Name) }
 
+$missingModules = $requiredModules | Where-Object { !($_ -in (Get-Module -ListAvailable).Name) }
 if ( $missingModules ) {
     Write-Error "The following required modules are not installed: $($missingModules -join ', ').`r`nYou can install them by 'Install-Module <module name>' command"
 } else {
-    Import-Module ImportExcel
+    Import-Module -Name $requiredModules
 }
 
 ###########################
