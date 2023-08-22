@@ -4,7 +4,7 @@
 ##  Purpose of script: Batch change assigned client of many users, based on input xlsx.              ##
 ##                                                                                                   ##
 ##  Notes: See included input_sample.xlsx for input format & column names.                           ##
-##         Uses site name 'Main' as default.                                                         ##
+##         Uses site name "Main" as default.                                                         ##
 ##         If several users have the same username and site, changes all of them.                    ##
 ##                                                                                                   ##
 ##  Author: Mart Roben                                                                               ##
@@ -65,7 +65,7 @@ $tokenBody = @{
 }
 Write-Host "Getting authorization token"
 # POST request - authorization token
-$tokenResponse = Invoke-RestMethod -Method 'POST' -Uri $tokenUrl -Headers $tokenHeaders -Body $tokenBody
+$tokenResponse = Invoke-RestMethod -Method "POST" -Uri $tokenUrl -Headers $tokenHeaders -Body $tokenBody
 
 $token = $tokenResponse.access_token
 $headers = @{
@@ -88,7 +88,7 @@ while ($continue) {
         page_size = 50
         page_no = $i_page }
     # GET request - users
-    $usersResponse = Invoke-RestMethod -Method 'GET' -Uri $usersUrl -Headers $headers -Body $usersBody
+    $usersResponse = Invoke-RestMethod -Method "GET" -Uri $usersUrl -Headers $headers -Body $usersBody
     $usersRaw += $usersResponse.users
     $i_page += 1
     $continue = $usersResponse.users.Count
@@ -114,7 +114,7 @@ while ($continue) {
     }
 
     # GET request - clients
-    $clientsResponse = Invoke-RestMethod -Method 'GET' -Uri $clientsUrl -Headers $headers -Body $clientsBody
+    $clientsResponse = Invoke-RestMethod -Method "GET" -Uri $clientsUrl -Headers $headers -Body $clientsBody
     $clients += $clientsResponse.clients
     $i_page += 1
     $continue = $clientsResponse.clients.Count
@@ -140,7 +140,7 @@ while ($continue) {
     }
 
     # GET request - sites
-    $sitesResponse = Invoke-RestMethod -Method 'GET' -Uri $sitesUrl -Headers $headers -Body $sitesBody
+    $sitesResponse = Invoke-RestMethod -Method "GET" -Uri $sitesUrl -Headers $headers -Body $sitesBody
     $sites += $sitesResponse.sites
     $i_page += 1
     $continue = $sitesResponse.sites.Count
@@ -158,16 +158,16 @@ $inputXlsx = Import-Excel -Path $inputXlsxPath
 Write-Host "Input lines read: $($inputXlsx.Count)"
 
 $defaultProperties = @(
-    'username'
-    'client_name'
-    'site_name'
-    'new_client_name'
-    'new_site_name'
-    'user_id'
-    'site_id'
-    'new_site_id'
+    "username"
+    "client_name"
+    "site_name"
+    "new_client_name"
+    "new_site_name"
+    "user_id"
+    "site_id"
+    "new_site_id"
 )
-$defaultSite = 'Main'
+$defaultSite = "Main"
 
 foreach ($inputLine in $inputXlsx) {
     # Add default properties
@@ -275,7 +275,7 @@ foreach ($operation in $operationsToApply) {
     
     try {
         # POST request - modify client/site on user
-        $operationResponse = Invoke-WebRequest -Method 'POST' -Uri $usersUrl -Headers $headers -Body $operationBodyJson -ContentType "application/json"
+        $operationResponse = Invoke-WebRequest -Method "POST" -Uri $usersUrl -Headers $headers -Body $operationBodyJson -ContentType "application/json"
     } catch {
         $errorCode = "$($_.Exception.Response.StatusCode.Value__) ($($_.Exception.Response.StatusCode))"
         write-Warning "$operationString - fail: $($errorCode)"
