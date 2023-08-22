@@ -4,6 +4,8 @@
 ##  Purpose of script: Batch change assigned client of many users, based on input xlsx.              ##
 ##                                                                                                   ##
 ##  Notes: See included input_sample.xlsx for input format & column names.                           ##
+##         Uses site name 'Main' as default.                                                         ##
+##         If several users have the same username and site, changes all of them.                    ##
 ##                                                                                                   ##
 ##  Author: Mart Roben                                                                               ##
 ##  Date Created: 18. Aug 2023                                                                       ##
@@ -27,7 +29,7 @@ $secret = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx
 $tenant = "<your_company>"
 $apiUrl = "https://<your_company>.halopsa.com/api"
 $authUrl = "https://<your_company>.halopsa.com/auth"
-$inputXlsxPath = "changes.xlsx"
+$inputXlsxPath = "sample_input.xlsx"
 
 
 ##########################
@@ -80,23 +82,22 @@ $headers = @{
 
 $usersUrl = $apiUrl + "/users/"
 
-Write-Host "Getting user id list"
+Write-Host "Getting User list from Halo API"
 $continue = $true
 $i_page = 1
 while ($continue) {
     $usersBody = @{
         pageinate = $true
         page_size = 50
-        page_no = $i_page
-    }
-
+        page_no = $i_page }
     # GET request - users
     $usersResponse = Invoke-RestMethod -Method 'GET' -Uri $usersUrl -Headers $headers -Body $usersBody
-    $users += $usersResponse.users
+    $usersRaw += $usersResponse.users
     $i_page += 1
     $continue = $usersResponse.users.Count
 }
-Write-Host "Found $($users.Count) users"
+
+Write-Host "Users found: $($usersRaw.Count)"
 Remove-Variable continue, i_page
 
 
@@ -106,7 +107,7 @@ Remove-Variable continue, i_page
 
 $clientsUrl = $apiUrl + "/client/"
 
-Write-Host "Getting client id list"
+Write-Host "Getting Client list from Halo API"
 $continue = $true
 $i_page = 1
 while ($continue) {
@@ -116,13 +117,39 @@ while ($continue) {
         page_no = $i_page
     }
 
-    # GET request - users
+    # GET request - clients
     $clientsResponse = Invoke-RestMethod -Method 'GET' -Uri $clientsUrl -Headers $headers -Body $clientsBody
     $clients += $clientsResponse.clients
     $i_page += 1
-    $continue = $usersResponse.clients.Count
+    $continue = $clientsResponse.clients.Count
 }
-Write-Host "Found $($clients.Count) clients"
+Write-Host "Clients found: $($clients.Count)"
+Remove-Variable continue, i_page
+
+
+#############
+# Get sites #
+#############
+
+$sitesUrl = $apiUrl + "/site/"
+
+Write-Host "Getting Site list from Halo API"
+$continue = $true
+$i_page = 1
+while ($continue) {
+    $sitesBody = @{
+        pageinate = $true
+        page_size = 50
+        page_no = $i_page
+    }
+
+    # GET request - sites
+    $sitesResponse = Invoke-RestMethod -Method 'GET' -Uri $sitesUrl -Headers $headers -Body $sitesBody
+    $sites += $sitesResponse.sites
+    $i_page += 1
+    $continue = $sitesResponse.sites.Count
+}
+Write-Host "Sites found: $($sites.Count)"
 Remove-Variable continue, i_page
 
 
@@ -130,83 +157,107 @@ Remove-Variable continue, i_page
 # Read input xlsx #
 ###################
 
-$changesRaw = Import-Excel -Path $inputXlsxPath
+Write-Host "Reading input xlsx"
+$inputXlsx = Import-Excel -Path $inputXlsxPath
+Write-Host "Input lines read: $($inputXlsx.Count)"
 
+$defaultProperties = @(
+    'username'
+    'client_name'
+    'site_name'
+    'new_client_name'
+    'new_site_name'
+    'user_id'
+    'site_id'
+    'new_site_id'
+)
+$defaultSite = 'Main'
 
-##############################
-# Join user id and client id #
-##############################
+foreach ($inputLine in $inputXlsx) {
+    # Add default properties
+    foreach ( $propertyName in $defaultProperties ) {
+        if ( !($propertyName -in $inputLine.PSobject.Properties.Name) ) {
+            $inputLine | Add-Member -Name $propertyName -Type NoteProperty -Value $null } }
+    # Fill missing sites with default site
+    if ( !$inputLine.site_name ) { $inputLine.site_name = $defaultSite }
+    if ( !$inputLine.new_site_name ) { $inputLine.new_site_name = $defaultSite }
+    $inputLine = $inputLine | Select-Object $defaultProperties
+}
 
-# Get user id and client id references
-$userIds = @{}
-$users | Where-Object {$_.emailaddress} | ForEach-Object { $userIds[$_.emailaddress] = $_.id }
+##########################
+# Add user info to input #
+##########################
 
-$clientIds = @{}
-$clients | ForEach-Object { $clientIds[$_.name] = $_.id }
+# Select necessary fields from raw user data
+$users = @()
+foreach ( $user in $usersRaw ) {
+    $users += [PSCustomObject]@{
+        username = $user.name
+        client_name = $user.client_name
+        site_name = $user.site_name
+        user_id = $user.id }
+}
 
-$changes = @()
-$changesRaw | ForEach-Object { 
-    $changes += [pscustomobject]@{ 
-        user_email = $_.email
-        client_name = $_.client
-        site_name = $_.site
-        user_id = $userIds[$_.email]
-        client_id = $clientIds[$_.client]
-        site_id = $null
+# Match user info with input xlsx info
+$operations = @()
+foreach ( $inputLine in $inputXlsx ) {
+    $matchingUsers = $users | Where-Object {
+        # Find users with matching username, client and site
+        $_.username -eq $inputLine.username -and
+        $_.client_name -eq $inputLine.client_name -and
+        $_.site_name -eq $inputLine.site_name
     }
-}
-
-# Discard entried with missing user ids and client ids
-$missingUserid = ($changes | Where-Object { !$_.user_id }).user_email | Get-Unique
-$missingClientid = ($changes | Where-Object { !$_.client_id }).client_name | Get-Unique
-
-if ($missingUserid) { Write-Warning "Skipping the following input e-mails (no matches found in Halo): $($missingUserid -join ', ')" }
-if ($missingClientid) { Write-Warning "Skipping the following input clients (no matches found in Halo): $($missingClientid -join ', ')" }
-
-$changesExistingUsersClients = $changes | Where-Object { $_.user_id -and $_.client_id }
-
-# Change site name to Main for entries that don't have a site name specified
-$changesExistingUsersClients | ForEach-Object { if ($_.site_name -eq $null ) {$_.site_name = "Main"} }
-
-
-#############
-# Get sites #
-#############
-
-$inputClients = $changesExistingUsersClients | Select-Object client_name, client_id -Unique
-$sitesUrl = $apiUrl + "/site/"
-
-$sites = @()
-foreach ($client in $inputClients) {
-    $sitesBody = @{
-        client_id = $client.client_id
+    # Include all users with matching username, client and site
+    foreach ( $match in $matchingUsers ) {
+        # Add default properties
+        foreach ( $propertyName in $defaultProperties ) {
+            if ( !($propertyName -in $match.PSObject.Properties.Name) ) {
+                $match | Add-Member -Name $propertyName -Type NoteProperty -Value $null
+            } }
+        # Copy target client and site to all matching users
+        $match.new_client_name = $inputLine.new_client_name
+        $match.new_site_name = $inputLine.new_site_name
     }
-    Write-Host "Getting site id list for client $($client.client_name)"
-    # GET request - sites
-    $sitesResponse = Invoke-RestMethod -Method 'GET' -Uri $sitesUrl -Headers $headers -Body $sitesBody
-    Write-Host "-- found $($sitesResponse.sites.Count) sites"
-    $sites += $sitesResponse.sites
+    if ( !$matchingUsers ) {
+        # If no matching users are found, return the input line with empty user_id property 
+        $matchingUsers = $inputLine
+    }
+    $operations += $matchingUsers
 }
 
+##########################
+# Add site info to input #
+##########################
 
-#######################
-# Join target site id #
-#######################
+foreach ( $operation in $operations ) {
+    $matchingCurrentSite = $sites | Where-Object {
+        $_.client_name -eq $operation.client_name -and
+        $_.name -eq $operation.site_name}
 
-foreach ($change in $changesExistingUsersClients) {
-    $change.site_id = ($sites | Where-Object { $_.client_id  -eq $change.client_id -and $_.name -eq $change.site_name }).id
+    $matchingNewSite = $sites | Where-Object {
+        $_.client_name -eq $operation.new_client_name -and
+        $_.name -eq $operation.new_site_name}
+    
+    $operation.site_id = $matchingCurrentSite.id
+    $operation.new_site_id = $matchingNewSite.id
 }
 
-# Discard entried with missing site ids
-$missingSiteid = $changesExistingUsersClients |
-    Where-Object { !$_.site_id } |
-    ForEach-Object { $_.client_name, $_.site_name -join "/" } |
-    Sort-Object |
-    Get-Unique
+#########################
+# Handle invalid inputs #
+#########################
 
-if ($missingSiteid) { Write-Warning "Skipping the following input client/site combinations (no matches found in Halo): $($missingSiteid -join ', ')" }
+# Check for missing user_id and new_site_id
+$unknownUsers = $operations | Where-Object { !$_.user_id }
+$unknownNewSites = $operations | Where-Object { !$_.new_site_id }
 
-$changesToApply = $changesExistingUsersClients | Where-Object { $_.site_id }
+$unknownUsersNames = $unknownUsers | ForEach-Object { "$($_.username)@$($_.client_name)/$($_.site_name)" }
+if ( $unknownUsers ) { Write-Warning "Skipping the following Users. No matches found in Halo: $($unknownUsersNames-join ', ')" }
+
+$unknownNewSitesNames = $unknownNewSites | ForEach-Object { "$($_.new_client_name)/$($_.new_site_name)" } | Get-Unique
+if ( $unknownNewSites ) { Write-Warning "Skipping the following target Sites. No matches found in Halo: $($unknownNewSitesNames -join ', ')" }
+
+# Discard operations with invalid user_id or new_site_id
+$operationsToApply = $operations | Where-Object { $_.user_id -and $_.new_site_id }
 
 
 #########################
@@ -214,23 +265,28 @@ $changesToApply = $changesExistingUsersClients | Where-Object { $_.site_id }
 #########################
 
 $usersUrl =  $apiUrl + "/users/"
-foreach ($operation in $changesToApply) {
-    $operationIndex = [array]::IndexOf($changesToApply, $operation) + 1   # Post request counter
+foreach ($operation in $operationsToApply) {
+    $operationIndex = [array]::IndexOf($operationsToApply, $operation) + 1
+    # ^ Post request counter
     # Change identification string for log
-    $operationString = "($operationIndex/$($changesToApply.Count)) Assigning user $($operation.user_email) (id: $($operation.user_id)) to $($operation.client_name)/$($operation.site_name) (id: $($operation.client_id)/$($operation.site_id))"
+    $operationString = "($operationIndex/$($operationsToApply.Count)) Ressigning user $($operation.username) (user_id: $($operation.user_id)): $($operation.client_name)/$($operation.site_name) --> $($operation.new_client_name)/$($operation.new_site_name) (site_id: $($operation.new_site_id))"
 
     $operationBody = @{
         id = $operation.user_id
-        site_id = $operation.site_id
+        site_id = $operation.new_site_id
+        _isnew = $false
     }
 
     $operationBodyJson = ConvertTo-Json @($operationBody)   # Convert as array, because Halo POST takes only arrayed json
     
-    # POST request - modify client on user
-    $operationResponse = Invoke-WebRequest -Method 'POST' -Uri $usersUrl -Headers $headers -Body $operationBodyJson -ContentType "application/json"
+    try {
+        # POST request - modify client/site on user
+        $operationResponse = Invoke-WebRequest -Method 'POST' -Uri $usersUrl -Headers $headers -Body $operationBodyJson -ContentType "application/json"
+    } catch {
+        $errorCode = "$($_.Exception.Response.StatusCode.Value__) ($($_.Exception.Response.StatusCode))"
+        write-Warning "$operationString - fail: $($errorCode)"
+    }
     if ( $operationResponse.StatusCode -eq 201 ) { 
         Write-Host "$operationString - success" -fore green
-    } else { 
-        Write-Warning "$operationString - fail: $($operationResponse.StatusDescription)"
     }
 }
