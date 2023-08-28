@@ -3,8 +3,8 @@
 ##  Script name: HaloReassignBillingTemplates.ps1                                                    ##
 ##  Purpose of script: Cycle through all Billing Templates and re-assign them to Clients             ##
 ##                     Simulates the "Update Customers" button in Configuration > Billing >          ##
-##                     > Billing templates. If that is not done, any update in a Billing Templates   ##
-##                     would only apply to Clients where the template is newly assigned.             ##
+##                     > Billing templates. If that is not done, any update in Billing Templates     ##
+##                     would only apply to Clients to which templates are newly assigned.            ##
 ##                                                                                                   ##
 ##  Author: Mart Roben                                                                               ##
 ##  Date Created: 28. Aug 2023                                                                       ##
