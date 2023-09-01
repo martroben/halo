@@ -49,10 +49,16 @@ GROUP BY
     DATEADD(MONTH, DATEDIFF(MONTH, 0, FAULTS.DateCleared), 0)) AS TeamByMonthCTE
 
 
+
+
+
+
+
 SELECT
     MonthFillerCTE.CFDefaultTeam,
-    FieldValuesCTE.fvalue,
+    MonthFillerCTE.TeamName,
     MonthFillerCTE.Mnth,
+
     /* NPS */
     /* Change to Neutral2 if needed */
     100.0 * (TeamByMonthCTE.Positive - TeamByMonthCTE.Negative) / (TeamByMonthCTE.Positive + TeamByMonthCTE.Negative + TeamByMonthCTE.Neutral) AS NPS,
@@ -71,25 +77,89 @@ SELECT
         ORDER BY MonthFillerCTE.Mnth
         /* 6 month sliding average */
         ROWS BETWEEN 6 PRECEDING AND 1 PRECEDING
-    ) AS NPSSlidingStdev
+    ) AS NPSSlidingStdev,
+
+    /* Number of tickets */
+    /* Fills in 0 if ticket count is null */
+    ISNULL(TeamByMonthCTE.TicketCount, 0) AS TicketCount,
+    PERCENT_RANK() OVER(
+        PARTITION BY MonthFillerCTE.Mnth
+        ORDER BY ISNULL(TeamByMonthCTE.TicketCount, 0)
+    ) AS TicketCountPercentile,
+    AVG(CAST(ISNULL(TeamByMonthCTE.TicketCount, 0) AS Float)) OVER(
+        PARTITION BY MonthFillerCTE.CFDefaultTeam
+        ORDER BY MonthFillerCTE.Mnth
+        /* 6 month sliding average */
+        ROWS BETWEEN 6 PRECEDING AND 1 PRECEDING
+    ) AS TicketCountSlidingAvg,
+    STDEV(ISNULL(TeamByMonthCTE.TicketCount, 0)) OVER(
+        PARTITION BY MonthFillerCTE.CFDefaultTeam
+        ORDER BY MonthFillerCTE.Mnth
+        /* 6 month sliding average */
+        ROWS BETWEEN 6 PRECEDING AND 1 PRECEDING
+    ) AS TicketCountSlidingStdev,
+
+    /* Average time to clear a ticket */
+    /* Only Task and Incident ticket types */
+    TeamByMonthCTE.ClearTime,
+    CASE
+        /* Exclude null and 0 values from percentile calculation */
+        WHEN TeamByMonthCTE.ClearTime IS NULL THEN NULL
+        ELSE PERCENT_RANK() OVER(
+            PARTITION BY
+                CASE
+                    WHEN TeamByMonthCTE.ClearTime IS NULL THEN '1900/1/1'
+                    ELSE MonthFillerCTE.Mnth
+                END
+            ORDER BY TeamByMonthCTE.ClearTime DESC)
+        END
+    AS ClearTimePercentile,
+    AVG(TeamByMonthCTE.ClearTime) OVER(
+        PARTITION BY MonthFillerCTE.CFDefaultTeam
+        ORDER BY MonthFillerCTE.Mnth
+        /* 6 month sliding average */
+        ROWS BETWEEN 6 PRECEDING AND 1 PRECEDING
+    ) AS ClearTimeSlidingAvg,
+    STDEV(TeamByMonthCTE.ClearTime) OVER(
+        PARTITION BY MonthFillerCTE.CFDefaultTeam
+        ORDER BY MonthFillerCTE.Mnth
+        /* 6 month sliding average */
+        ROWS BETWEEN 6 PRECEDING AND 1 PRECEDING
+    ) AS ClearTimeSlidingStdev
+
 FROM
     (SELECT
         TeamInfoCTE.CFDefaultTeam,
+        TeamInfoCTE.TeamName,
         TeamInfoCTE.WorkStart,
         AllMonthsCTE.Mnth
     FROM
         (SELECT
             Area.CFDefaultTeam,
+            FieldValuesCTE.fvalue AS TeamName,
             /* Round date to months */
             DATEADD(MONTH, DATEDIFF(MONTH, 0, MIN(FAULTS.DateCleared)), 0) AS WorkStart
         FROM
             FAULTS
             LEFT JOIN Area ON Area.AArea = Faults.Areaint
-        /* Some dates in Halo are from 1899 but they are not displayed, because SQL can handle dates starting from 1900 */
+            LEFT JOIN
+                (SELECT
+                    fcode,
+                    fvalue
+                FROM
+                    LOOKUP
+                WHERE
+                    LOOKUP.fid = 146
+                ) AS FieldValuesCTE
+                ON Area.CFDefaultTeam = FieldValuesCTE.fcode
         WHERE
+            /* Some dates in Halo are from 1899 but they are not displayed, because SQL can handle dates starting from 1900 */
             YEAR(FAULTS.DateCleared) > 1900
+            /* Give aggregate values (percentiles etc.) only over teams that have a name */
+            AND FieldValuesCTE.fvalue IS NOT NULL
         GROUP BY
-            Area.CFDefaultTeam
+            Area.CFDefaultTeam,
+            FieldValuesCTE.fvalue
         ) AS TeamInfoCTE
         CROSS JOIN (
             SELECT
@@ -134,17 +204,6 @@ FROM
         ON
             MonthFillerCTE.Mnth = TeamByMonthCTE.Mnth
             AND MonthFillerCTE.CFDefaultTeam = TeamByMonthCTE.CFDefaultTeam
-    LEFT JOIN
-        (SELECT
-            fcode,
-            fvalue
-        FROM
-            LOOKUP
-        WHERE
-            LOOKUP.fid = 146
-        ) AS FieldValuesCTE
-        ON
-            MonthFillerCTE.CFDefaultTeam = FieldValuesCTE.fcode
 WHERE
     MonthFillerCTE.Mnth >= CAST(MonthFillerCTE.WorkStart AS Date)
 ORDER BY CFDefaultTeam, Mnth OFFSET 0 ROWS
