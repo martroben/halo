@@ -38,7 +38,7 @@ FEEDBACK: Customer feedback results)
 
 CALENDAR: Calendar database
 .date_id            Date in 'YYYY/OM/DD' format
-.date_day           Number of day
+.date_day           Number of the day
 
 UNAME: Halo dashboard user info (technicians)
 .UName              User name
@@ -52,10 +52,9 @@ UNAME: Halo dashboard user info (technicians)
 AllMonthsCTE        List of consecutive months.
 AgentInfoCTE        List of Agents and their first cleared ticket months (WorkStart).
                     Necessary to calculate sliding average only over the time that Agent has actually been employed.
-                    Monthly, unrounded.
 MonthFillerCTE      Combination of AllMonthsCTE and AgentInfoCTE, to create zero value rows for months with no tickets.
                     Necessary to get correct averages and standard deviations.
-                    Also because window functions work by number of preceeding rows, not by date column.
+                    Also necessary because window functions work by number of preceeding rows, not by date column.
 AgentByMonthCTE     Agent survey results, ticket counts and average time resolution times by month.
 RawDataCTE          Agent NPS, ticket count and resolution time with percentile ranks, sliding averages and standard deviations.
                     Monthly, unrounded.
@@ -248,7 +247,7 @@ FROM
             ON MonthFillerCTE.ClearWhoInt = UNAME.UNum
     WHERE
         MonthFillerCTE.Mnth >= CAST(MonthFillerCTE.WorkStart AS Date)
-) AS RawDataCTE
+    ) AS RawDataCTE
 
 /* WHERE RawDataCTE.ClearWhoInt = $agentid */
 ORDER BY [Agent], [Year], [Month] OFFSET 0 ROWS
