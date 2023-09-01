@@ -53,11 +53,25 @@ SELECT
     MonthFillerCTE.CFDefaultTeam,
     FieldValuesCTE.fvalue,
     MonthFillerCTE.Mnth,
-    TeamByMonthCTE.Positive,
-    TeamByMonthCTE.Neutral,
-    TeamByMonthCTE.Negative,
-    TeamByMonthCTE.TicketCount,
-    TeamByMonthCTE.ClearTime
+    /* NPS */
+    /* Change to Neutral2 if needed */
+    100.0 * (TeamByMonthCTE.Positive - TeamByMonthCTE.Negative) / (TeamByMonthCTE.Positive + TeamByMonthCTE.Negative + TeamByMonthCTE.Neutral) AS NPS,
+    PERCENT_RANK() OVER(
+        PARTITION BY MonthFillerCTE.Mnth
+        ORDER BY 100.0 * (TeamByMonthCTE.Positive - TeamByMonthCTE.Negative) / (TeamByMonthCTE.Positive + TeamByMonthCTE.Negative + TeamByMonthCTE.Neutral)
+    ) AS NPSPercentile,
+    AVG(100.0 * (TeamByMonthCTE.Positive - TeamByMonthCTE.Negative) / (TeamByMonthCTE.Positive + TeamByMonthCTE.Negative + TeamByMonthCTE.Neutral)) OVER(
+        PARTITION BY MonthFillerCTE.CFDefaultTeam
+        ORDER BY MonthFillerCTE.Mnth
+        /* 6 month sliding average */
+        ROWS BETWEEN 6 PRECEDING AND 1 PRECEDING
+    ) AS NPSSlidingAvg,
+    STDEV(100.0 * (TeamByMonthCTE.Positive - TeamByMonthCTE.Negative) / (TeamByMonthCTE.Positive + TeamByMonthCTE.Negative + TeamByMonthCTE.Neutral)) OVER(
+        PARTITION BY MonthFillerCTE.CFDefaultTeam
+        ORDER BY MonthFillerCTE.Mnth
+        /* 6 month sliding average */
+        ROWS BETWEEN 6 PRECEDING AND 1 PRECEDING
+    ) AS NPSSlidingStdev
 FROM
     (SELECT
         TeamInfoCTE.CFDefaultTeam,
@@ -131,3 +145,6 @@ FROM
         ) AS FieldValuesCTE
         ON
             MonthFillerCTE.CFDefaultTeam = FieldValuesCTE.fcode
+WHERE
+    MonthFillerCTE.Mnth >= CAST(MonthFillerCTE.WorkStart AS Date)
+ORDER BY CFDefaultTeam, Mnth OFFSET 0 ROWS
