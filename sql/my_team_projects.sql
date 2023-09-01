@@ -1,3 +1,36 @@
+/* dev notes
+# 26299
+Report to show Team's projects that are either open or closed within last 7 days.
+
+#########################
+# TABLES & COLUMNS USED #
+#########################
+
+FAULTS              Ticket info
+.Faultid            Ticket id
+.Areaint            Customer id
+.DateOccured        Date of opening ticket
+.DateCleared        Date of closing the ticket
+.Symptom            Ticket description
+.Status             Ticket status id
+.RequestTypeNew     Ticket type id
+.FOppTargetDate     Ticket (project) target date
+
+AREA                Customer info
+.AAreaDesc          Customer name
+.Aarea              Customer id
+
+
+####################
+# HARDCODED VALUES #
+####################
+
+FAULTS.Status = 9               Projects with status Closed
+DATEADD(week, -1, GETDATE())    Tickets within last week (7 days)
+FAULTS.RequestTypeNew IN (5)    Ticket types: 5 - Project
+
+*/
+
 
 SELECT
     FAULTS.Faultid,
