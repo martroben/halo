@@ -206,8 +206,8 @@ FROM
                 SELECT
                     CAST(CALENDAR.date_id AS Date) AS Mnth
                 FROM CALENDAR
-                /* Report start date */
                 WHERE CALENDAR.date_day = 1 AND CALENDAR.date_id BETWEEN '2023/01/01' AND GETDATE()
+                                                            /* Report start date^ */
                 ) AS AllMonthsCTE
         ) AS MonthFillerCTE
         LEFT JOIN (
