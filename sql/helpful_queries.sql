@@ -55,3 +55,7 @@ SELECT
 FROM
     RequestType
 ORDER BY RTid OFFSET 0 ROWS
+
+
+/* See all ticket types that are Projects */
+SELECT RTid FROM requesttype WHERE RTIsProject = 1

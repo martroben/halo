@@ -74,9 +74,3 @@ fChildCount
 fxrefto
 FixByDate
 */
-
-
-/* Ticket types that are projects
-
-SELECT RTid FROM requesttype WHERE RTIsProject = 1
-*/
