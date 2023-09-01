@@ -49,29 +49,6 @@ AREA.Aarea = 121 - Tickets for a certain customer
 LOOKUP.fid = 17 - Values for the charge type field
 LOOKUP.fid = 63 - Values for the appointment type field
 
-
-###################
-# HELPFUL QUERIES #
-###################
-
-See actioncodes for all charge types and their corresponding lookup codes:
-SELECT
-    LOOKUP.fvalue,
-    LOOKUP.fcode,
-    UniqueActioncodes.actioncode
-FROM LOOKUP
-    LEFT JOIN (SELECT actioncode FROM ACTIONS GROUP BY actioncode) AS UniqueActioncodes
-    ON LOOKUP.fcode =  UniqueActioncodes.actioncode + 1
-WHERE LOOKUP.fid = 17
-
-See names for APPOINTMENT.apappointmenttype values:
-SELECT fcode, fvalue
-FROM LOOKUP
-WHERE FID = 63
-
-Round up to nearest 0.25 (only works for positive numbers)
-FLOOR(time) + CEILING((time - FLOOR(time)) * 4) / 4
-
 */
 
 

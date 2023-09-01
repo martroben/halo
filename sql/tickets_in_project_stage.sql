@@ -45,37 +45,6 @@ LOOKUP.fid = 137 - Custom field "Pipeline"
 TSTATUS.Tstatus = 26 - ticket status is "Notify Projects"
 ISNULL(FAULTS.FDeleted, 0) = 0 - Ticket not deleted (FDeleted either NULL or False)
 
-
-###################
-# HELPFUL QUERIES #
-###################
-
-See names and steps of all existing workflow:
-SELECT
-	FLOWDETAIL.FDFHID AS [workflow id],
-	FLOWHEADER.FHName AS [workflow name],
-	FLOWDETAIL.FDSEQ AS [flow step number],
-	FLOWDETAIL.FDName AS [flow step name],
-	FLOWHEADER.fhactive AS [flow active]
-FROM FLOWDETAIL
-	LEFT JOIN FLOWHEADER ON FLOWHEADER.FHID = FLOWDETAIL.FDFHID
-
-See what Custom Field names and values correspond to different lookup id-s:
-SELECT
-	FILookup AS [field lookup code],
-	FIName AS [field code name],
-	FILabel AS [field description]
-FROM FIELDINFO
-WHERE FILookup NOT IN (0, -1)
-
-See all existing ticket status id-s:
-SELECT
-	Tstatus [status id],
-	tstatusdesc [status description],
-	TstatusSeq [status placement],
-	tshortname [status code name]
-FROM TSTATUS
-
 */
 
 
