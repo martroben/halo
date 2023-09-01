@@ -46,3 +46,12 @@ SELECT
 	TstatusSeq [status placement],
 	tshortname [status code name]
 FROM TSTATUS
+
+
+/* See ticket type code (FAULTS.RequestTypeNew) meanings */
+SELECT
+    RTid,
+    rtdesc
+FROM
+    RequestType
+ORDER BY RTid OFFSET 0 ROWS
