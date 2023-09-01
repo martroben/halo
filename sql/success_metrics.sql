@@ -26,21 +26,21 @@ Clear Time Percentile Agent average clearing time percentile rank among all agen
 # TABLES & COLUMNS USED #
 #########################
 
-FAULTS: Ticket info
+FAULTS              Ticket info
 .Faultid            Ticket id
 .ClearWhoInt        Agent who closed the ticket
 .DateCleared        Date of closing the ticket
 .ClearTime          Time recorded on ticket
 
-FEEDBACK: Customer feedback results)
+FEEDBACK            Customer feedback results)
 .FBFaultID          Ticket id
 .FBScore            Feedback score
 
-CALENDAR: Calendar database
+CALENDAR            Calendar database
 .date_id            Date in 'YYYY/OM/DD' format
 .date_day           Number of the day
 
-UNAME: Halo dashboard user info (technicians)
+UNAME               Halo dashboard user info (technicians)
 .UName              User name
 .UNum               User id (not the same as USERS.Uid)
 

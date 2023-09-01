@@ -32,23 +32,23 @@ FAULTS: Ticket info
 .ClearTime          Time recorded on ticket
 .Areaint            Ticket customer id
 
-AREA:               Customer info
+AREA                Customer info
 .Aarea              Customer id
 .CFDefaultTeam      Custom field for default team
 
-FEEDBACK: Customer feedback results)
+FEEDBACK            Customer feedback results)
 .FBFaultID          Ticket id
 .FBScore            Feedback score
 
-CALENDAR: Calendar database
+CALENDAR            Calendar database
 .date_id            Date in 'YYYY/OM/DD' format
 .date_day           Number of the day
 
-UNAME: Halo dashboard user info (technicians)
+UNAME               Halo dashboard user info (technicians)
 .UName              User name
 .UNum               User id (not the same as USERS.Uid)
 
-LOOKUP:             Info about custom field values
+LOOKUP              Info about custom field values
 .fvalue             Human readable value of custom field
 .fcode              Number coded value of custom field
 .fid                Custom field id
