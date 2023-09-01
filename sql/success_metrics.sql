@@ -243,7 +243,9 @@ FROM
             ON
                 MonthFillerCTE.Mnth = AgentByMonthCTE.Mnth
                 AND MonthFillerCTE.ClearWhoInt = AgentByMonthCTE.AgentId
-        LEFT JOIN Uname ON MonthFillerCTE.ClearWhoInt = UNAME.UNum
+        LEFT JOIN
+            Uname
+            ON MonthFillerCTE.ClearWhoInt = UNAME.UNum
     WHERE
         MonthFillerCTE.Mnth >= CAST(MonthFillerCTE.WorkStart AS Date)
 ) AS RawDataCTE
