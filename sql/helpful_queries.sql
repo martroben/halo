@@ -59,3 +59,25 @@ ORDER BY RTid OFFSET 0 ROWS
 
 /* See all ticket types that are Projects */
 SELECT RTid FROM requesttype WHERE RTIsProject = 1
+
+
+/* See teams of all technicians */
+SELECT
+    UNAME.Unum,
+    UNAME.uname,
+    UNAMESECTION.USSDID,
+    UNAMESECTION.USsection,
+    UNAMESECTION.USinsection,           /* Can be assigned Team's tickets */
+    UNAMESECTION.USunassignedaccess,    /* Can see Team's unassigned tickets */
+    UNAMESECTION.USotheragentaccess,    /* Can see other Teammember's tickets */
+    UNAMESECTION.usIsManager,
+    CASE
+        WHEN UNAMESECTION.USsection = UNAME.usection THEN 1
+        ELSE 0
+    END AS IsDefaultTeam
+FROM
+    UNAMESECTION
+    LEFT JOIN UNAME
+        ON UNAMESECTION.USunum = UNAME.Unum
+ORDER BY UNAME.Unum OFFSET 0 ROWS
+
