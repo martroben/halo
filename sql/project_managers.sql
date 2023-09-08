@@ -1,75 +1,129 @@
-/*
+/* dev notes
+# 26753
+Report with total monthly opened and closed tickets by Agent
+(Only Agents with default Team set)
 
-Plan:
-Pivot Faults to have a row for date occuring and date clearing
-Join with calendar to add month row
-Join with project managers to select only project managers
+##################
+# RESULT COLUMNS #
+##################
 
-Notes:
-team 7 - project managers
-Use Faults.AssignedToInt not FAULTS.userid
+Year, Month         Result month
+Agent               Agent name
+Default Team        Agent's default Team
+New tickets         Number of new tickets opened and assigned to Agent
+Closed tickets      Number of tickets Closed that were assigned to Agent
+
+
+#########################
+# TABLES & COLUMNS USED #
+#########################
+
+FAULTS              Ticket info
+.DateOccured        Date of opening the ticket
+.DateCleared        Date of closing the ticket
+.AssignedToInt      Agent id to whom the ticket is assigned
+
+UNAME               Halo dashboard user info (Agents)
+.UName              Agent name
+.UNum               Agent id (not the same as USERS.Uid)
+.usection           Agent default Team
+
+UNAMESECTION        Teams that Agents belong to
+.USunum             Agent id
+.USSDID             Team id
+.USsection          Team name
+
+CALENDAR            Calendar database
+.date_id            Date in 'YYYY/OM/DD' format
+.date_day           Number of the day
+.date_month         Month number
+.date_year          Year number
+
+
+#########################################
+# CTE-s USED (Common Table Expressions) #
+#########################################
+
+AllMonthsCTE            List of consecutive months.
+DefaultTeamsCTEs        List of Agents with default Team information.
+MonthFillerCTE          Combination of AllMonthsCTE and DefaultTeamsCTE, to create zero value rows for months with no tickets.
+EventsCTE               FAULTS table with separate rows for opening and closing each ticket.
+AgentEventsCTE          Agents with a separate row for opening and closing each ticket.
+AgentMonthEventsCTE     Agents with total number of opened and closed tickets aggregated by month.
+
+
+####################
+# HARDCODED VALUES #
+####################
+
+CALENDAR.date_id BETWEEN '2023/01/01' AND GETDATE()         Report starts from 2023/01/01
+UNAMESECTION.USsection = UNAME.usection                     Show only Agents that have default Team set
+AgentMonthEventsCTE.USSDID = 7                              Show only Agents from a certain Team
 
 */
 
 
 SELECT
-    AllMonthsCTE.date_id,
-    ProjectManagersCTE.uname
+    AgentMonthEventsCTE.date_year AS [Year],
+    AgentMonthEventsCTE.date_month AS [Month],
+    AgentMonthEventsCTE.uname AS [Agent],
+    AgentMonthEventsCTE.USsection AS [Default team],
+    AgentMonthEventsCTE.DateOccured AS [New tickets],
+    AgentMonthEventsCTE.DateCleared AS [Closed tickets]
 FROM
     (SELECT
-        CALENDAR.date_id
-    FROM CALENDAR
-    WHERE
-        CALENDAR.date_day = 1 AND CALENDAR.date_id BETWEEN '2023/01/01' AND GETDATE()
-                                            /* Report start date ^ */
-    ) AS AllMonthsCTE
-    CROSS JOIN
-        (SELECT
-            UNAME.Unum,
-            UNAME.uname
-        FROM
-            UNAMESECTION
-            LEFT JOIN UNAME
-                ON UNAMESECTION.USunum = UNAME.Unum
-        WHERE
-            /* Select only Agent default teams */
-            UNAMESECTION.USsection = UNAME.usection
-            /* Select Project Managers */
-            AND UNAMESECTION.USSDID = 7
-        ) AS ProjectManagersCTE
-    LEFT JOIN
-        FAULTS
-            ON ProjectManagersCTE.Unum = FAULTS.userid AND 
+        MonthFillerCTE.date_year,
+        MonthFillerCTE.date_month,
+        MonthFillerCTE.Unum,
+        MonthFillerCTE.uname,
+        MonthFillerCTE.USSDID,
+        MonthFillerCTE.USsection,
+        EventsCTE.EventType
+    FROM
+        FAULTS UNPIVOT (EventDate FOR EventType IN (DateOccured, DateCleared)) AS EventsCTE
+        RIGHT JOIN
+            (SELECT
+                AllMonthsCTE.date_year,
+                AllMonthsCTE.date_month,
+                DefaultTeamsCTE.Unum,
+                DefaultTeamsCTE.uname,
+                DefaultTeamsCTE.USSDID,
+                DefaultTeamsCTE.USsection
+            FROM
+                (SELECT
+                        CALENDAR.date_year,
+                        CALENDAR.date_month
+                    FROM CALENDAR
+                    WHERE
+                        CALENDAR.date_day = 1
+                        AND CALENDAR.date_id BETWEEN '2023/01/01' AND GETDATE()
+                                    /* Report start date ^ */
+                ) AS AllMonthsCTE
+                CROSS JOIN
+                    (SELECT DISTINCT
+                                UNAME.Unum,
+                                UNAME.uname,
+                                UNAMESECTION.USSDID,
+                                UNAMESECTION.USsection
+                            FROM
+                                UNAMESECTION
+                                LEFT JOIN UNAME
+                                    ON UNAMESECTION.USunum = UNAME.Unum
+                            WHERE
+                                /* Select only Agents that have default Team set */
+                                UNAMESECTION.USsection = UNAME.usection
+                    ) AS DefaultTeamsCTE
+            ) AS MonthFillerCTE
+            ON
+                MonthFillerCTE.Unum = EventsCTE.AssignedToInt
+                AND MonthFillerCTE.date_year = YEAR(EventsCTE.EventDate)
+                AND MonthFillerCTE.date_month = MONTH(EventsCTE.EventDate)) AS AgentEventsCTE
+    PIVOT (COUNT(AgentEventsCTE.EventType) FOR AgentEventsCTE.EventType IN (DateOccured, DateCleared)) AS AgentMonthEventsCTE
 
-
-SELECT
-    AllMonthsCTE.date_id,
-    FaultOccured.DateOccured,
-    FaultOccured.Faultid
-FROM
-    (SELECT
-        CALENDAR.date_id
-    FROM CALENDAR
-    WHERE
-        CALENDAR.date_day = 1 AND CALENDAR.date_id BETWEEN '2023/01/01' AND GETDATE()
-                                            /* Report start date ^ */
-    ) AS AllMonthsCTE
-    LEFT JOIN FAULTS AS FaultOccured
-        ON datefromparts(YEAR(FaultOccured.DateOccured), MONTH(FaultOccured.DateOccured), 1) = AllMonthsCTE.date_id
-
-
-SELECT
-    Faultid,
-    Symptom,
-    EventDate,
-    CASE
-        WHEN EventType = 'DateOccured' THEN 1
-        ELSE 0
-    END AS Occured,
-    CASE
-        WHEN EventType = 'DateCleared' THEN 1
-        ELSE 0
-    END AS Cleared
-FROM
-    FAULTS
-    UNPIVOT (EventDate FOR EventType IN (DateOccured, DateCleared)) AS Unpivoted
+/* Select only one team and one month
+WHERE
+    AgentMonthEventsCTE.USSDID = 7,
+      /* Select only Agents from ^Project Managers Team*/
+    AgentMonthEventsCTE.date_year = YEAR(GETDATE()),
+    AgentMonthEventsCTE.date_month = MONTH(GETDATE())
+*/
