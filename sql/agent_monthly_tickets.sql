@@ -91,27 +91,27 @@ FROM
                 DefaultTeamsCTE.USsection
             FROM
                 (SELECT
-                        CALENDAR.date_year,
-                        CALENDAR.date_month
-                    FROM CALENDAR
-                    WHERE
-                        CALENDAR.date_day = 1
-                        AND CALENDAR.date_id BETWEEN '2023/01/01' AND GETDATE()
-                                    /* Report start date ^ */
+                    CALENDAR.date_year,
+                    CALENDAR.date_month
+                FROM CALENDAR
+                WHERE
+                    CALENDAR.date_day = 1
+                    AND CALENDAR.date_id BETWEEN '2023/01/01' AND GETDATE()
+                                /* Report start date ^ */
                 ) AS AllMonthsCTE
                 CROSS JOIN
                     (SELECT DISTINCT
-                                UNAME.Unum,
-                                UNAME.uname,
-                                UNAMESECTION.USSDID,
-                                UNAMESECTION.USsection
-                            FROM
-                                UNAMESECTION
-                                LEFT JOIN UNAME
-                                    ON UNAMESECTION.USunum = UNAME.Unum
-                            WHERE
-                                /* Select only Agents that have default Team set */
-                                UNAMESECTION.USsection = UNAME.usection
+                        UNAME.Unum,
+                        UNAME.uname,
+                        UNAMESECTION.USSDID,
+                        UNAMESECTION.USsection
+                    FROM
+                        UNAMESECTION
+                        LEFT JOIN UNAME
+                            ON UNAMESECTION.USunum = UNAME.Unum
+                    WHERE
+                        /* Select only Agents that have default Team set */
+                        UNAMESECTION.USsection = UNAME.usection
                     ) AS DefaultTeamsCTE
             ) AS MonthFillerCTE
             ON
@@ -123,7 +123,7 @@ FROM
 /* Select only one team and one month
 WHERE
     AgentMonthEventsCTE.USSDID = 7,
-      /* Select only Agents from ^Project Managers Team*/
+      /* Select only Agents from ^Project Managers Team */
     AgentMonthEventsCTE.date_year = YEAR(GETDATE()),
     AgentMonthEventsCTE.date_month = MONTH(GETDATE())
 */
