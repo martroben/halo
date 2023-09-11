@@ -63,6 +63,7 @@ LOOKUP              Info about custom field values
 #########################################
 
 AllMonthsCTE        List of consecutive months.
+FieldValuesCTE      Values of Default Team custom field
 TeamInfoCTE         List of Teams, their names and their first cleared ticket months (WorkStart).
                     Necessary to calculate sliding average only over the time that the Team has actually been employed.
 MonthFillerCTE      Combination of AllMonthsCTE and TeamInfoCTE, to create zero value rows for months with no tickets.
