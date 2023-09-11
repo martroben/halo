@@ -20,57 +20,78 @@ AREA                Customer info
 .AAreaDesc          Customer name
 .Aarea              Customer id
 
+UNAME               Halo dashboard user info (Agents)
+.UName              User name
+
+SECTIONDETAIL       Teams info
+.SDid               Team id
+.SDSectionName      Team name
+
+UNAMESECTION        Teams that Agents belong to
+.USunum             Agent id
+.USSDID             Team id
+
+LOOKUP              Info about custom field values
+.fvalue             Human readable value of custom field
+.fcode              Number coded value of custom field
+.fid                Custom field id
+
+
+#########################################
+# CTE-s USED (Common Table Expressions) #
+#########################################
+
+FieldValuesCTE      Values of Default Team custom field
+
 
 ####################
 # HARDCODED VALUES #
 ####################
 
-FAULTS.Status = 9               Projects with status Closed
+FAULTS.Status <> 9              Projects with status that is not Closed
 DATEADD(week, -1, GETDATE())    Tickets within last week (7 days)
 FAULTS.RequestTypeNew IN (5)    Ticket types: 5 - Project
+LOOKUP.fid = 146                CFDefaultTeam field values
+UNAME.Unum = $agentid           Current Agent
 
 */
 
 
 SELECT
     FAULTS.Faultid,
-    AREA.AAreaDesc,
-    FAULTS.Symptom,
-    CAST(FAULTS.FOppTargetDate AS Date) AS FOppTargetDate,
+    AREA.AAreaDesc AS [Client],
+    FieldValuesCTE.fvalue AS [Client default team],
+    FAULTS.Symptom AS [Project name],
+    FAULTS.FOppTargetDate AS [Target date],
     CASE
-        WHEN FAULTS.Status = 9 AND FAULTS.DateCleared >= DATEADD(week, -1, GETDATE()) THEN 'Closed in last 7 days'
-        ELSE 'Open'
-    END AS ProjectStatus
+        WHEN FAULTS.Status = 9 AND FAULTS.DateCleared >= DATEADD(week, -1, GETDATE()) THEN 1
+        ELSE 0
+    END AS [Closed (last 7 days)]
 FROM
     FAULTS
     LEFT JOIN AREA ON FAULTS.Areaint = AREA.Aarea
+    LEFT JOIN
+        (SELECT
+            fcode,
+            fvalue
+        FROM
+            LOOKUP
+        WHERE
+            LOOKUP.fid = 146
+        ) AS FieldValuesCTE
+        ON Area.CFDefaultTeam = FieldValuesCTE.fcode
+    LEFT JOIN SECTIONDETAIL
+        ON FieldValuesCTE.fvalue = SECTIONDETAIL.SDSectionName
 WHERE
     FAULTS.RequestTypeNew IN (5)
     AND (FAULTS.Status <> 9 OR FAULTS.DateCleared >= DATEADD(week, -1, GETDATE()))
+    /* Show only current Agent team */
+    AND SECTIONDETAIL.SDid = 
+        (SELECT
+            UNAMESECTION.USSDID
+        FROM UNAME
+            LEFT JOIN UNAMESECTION
+            ON UNAMESECTION.USunum = UNAME.Unum
+        WHERE UNAME.Unum = $agentid)
+
 ORDER BY FAULTS.DateOccured OFFSET 0 ROWS
-
-
-/*
-Project ticket types that have had child tickets
-
-5 	Project
-33 	Development project
-20  Project Task
-36  Pre-sales
-40  Business Application Development
-43  Objective
-44  Objective task
-*/
-
-
-/*
-Columns of interest
-
-fProjectInternalTask
-CFProjectNotes
-requesttypenew=5
-FTemplateParentID
-fChildCount
-fxrefto
-FixByDate
-*/
