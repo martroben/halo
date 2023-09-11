@@ -1,6 +1,6 @@
 /* dev notes
 # 26299
-Report with various success metrics, aggregated by month and custom team field.
+Report with various success metrics, aggregated by month and team custom field.
 
 ##################
 # RESULT COLUMNS #
@@ -48,6 +48,10 @@ UNAME               Halo dashboard user info (technicians)
 .UName              User name
 .UNum               User id (not the same as USERS.Uid)
 
+UNAMESECTION        Teams that Agents belong to
+.USunum             Agent id
+.USSDID             Team id
+
 LOOKUP              Info about custom field values
 .fvalue             Human readable value of custom field
 .fcode              Number coded value of custom field
@@ -78,6 +82,7 @@ CALENDAR.date_id BETWEEN '2023/01/01' AND GETDATE()         Report starts from 2
 CASE WHEN FEEDBACK.FBScore IN (..., ..., ...) THEN 1        Scores that are counted as positive, neutral and negative in NPS
 FAULTS.RequestTypeNew IN (1, 29)                            Task and Incident tickets
 LOOKUP.fid = 146                                            CFDefaultTeam field values
+UNAME.Unum = $agentid                                       Current Agent
 
 
 #########
@@ -276,5 +281,15 @@ FROM
     WHERE
         MonthFillerCTE.Mnth >= CAST(MonthFillerCTE.WorkStart AS Date)
     ) AS RawDataCTE
+
+/* Show only current Agent team */
+WHERE
+    RawDataCTE.CFDefaultTeam = 
+        (SELECT
+            UNAMESECTION.USSDID
+        FROM UNAME
+            LEFT JOIN UNAMESECTION
+            ON UNAMESECTION.USunum = UNAME.Unum
+        WHERE UNAME.Unum = $agentid)
 
 ORDER BY [Team], [Year], [Month] OFFSET 0 ROWS
