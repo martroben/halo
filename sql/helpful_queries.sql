@@ -81,3 +81,30 @@ FROM
         ON UNAMESECTION.USunum = UNAME.Unum
 ORDER BY UNAME.Unum OFFSET 0 ROWS
 
+
+/* See default teams of all Agents */
+SELECT
+    UNAME.Unum,
+    UNAME.uname,
+    DefaultTeamsCTE.DefaultTeamId,
+    DefaultTeamsCTE.DefaultTeam
+FROM UNAME
+    LEFT JOIN
+    (SELECT DISTINCT
+        UNAME.Unum,
+        UNAME.uname,
+        CASE
+            WHEN UNAME.usection = UNAMESECTION.USsection THEN UNAME.usection
+            ELSE NULL
+        END AS DefaultTeam,
+        CASE
+            WHEN UNAME.usection = UNAMESECTION.USsection THEN UNAMESECTION.USSDID
+            ELSE NULL
+        END AS DefaultTeamId
+    FROM
+        UNAMESECTION
+        LEFT JOIN UNAME
+            ON UNAMESECTION.USunum = UNAME.Unum
+    WHERE UNAME.usection = UNAMESECTION.USsection
+    ) AS DefaultTeamsCTE
+    ON UNAME.Unum = DefaultTeamsCTE.Unum
