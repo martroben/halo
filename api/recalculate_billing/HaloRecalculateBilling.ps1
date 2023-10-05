@@ -23,7 +23,7 @@
 ##########
 
 # Halo API credentials
-# Necessary permission: read:tickets, edit:tickets. Login type: Agent
+# Necessary permissions: read:customers, edit:customers. Login type: Agent
 $clientId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 $secret = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 $tenant = "<your_company>"
@@ -92,12 +92,15 @@ $tokenBody = @{
 Write-Host "Getting authorization token"
 # POST request - authorization token
 $tokenResponse = Invoke-RestMethod -Method 'POST' -Uri $tokenUrl -Headers $tokenHeaders -Body $tokenBody
-
 $token = $tokenResponse.access_token
 $headers = @{
     "Authorization" = "Bearer " + $token
     "halo-app-name" = "halo-web-application"
 }
+
+# Timer to check for token timeout
+$tokenTimer = [Diagnostics.Stopwatch]::StartNew()
+$tokenExpiry = $tokenResponse.expires_in
 
 
 ###############
@@ -162,8 +165,23 @@ foreach ($ticket in $tickets) {
             Write-Host "$actionString - not recalculated, because no time entered on action" -fore red
         }
     }
+
+    # Refresh token if time to expiry is less than 5 minutes
+    if ($tokenExpiry - $tokenTimer.Elapsed.TotalSeconds -le 300) {
+        Write-Host "Refreshing authorization token"
+        # POST request - authorization token
+        $tokenResponse = Invoke-RestMethod -Method 'POST' -Uri $tokenUrl -Headers $tokenHeaders -Body $tokenBody
+        $tokenTimer = [Diagnostics.Stopwatch]::StartNew()
+        $token = $tokenResponse.access_token
+        $tokenExpiry = $tokenResponse.expires_in
+        $headers = @{
+            "Authorization" = "Bearer " + $token
+            "halo-app-name" = "halo-web-application"
+        }
+    }
+
     # Time stats 4shiz&giggles
-    if ($ticketIndex % $ticketsPerLap -eq 0) {
+    if ($ticketIndex % $ticketsPerLap -eq 0) {        
         $runtimeMinutes = [Math]::Round($timer.ElapsedMilliseconds / 60e3, 2)
         $lapTimes += $runtimeMinutes - ($lapTimes | Measure-Object -Sum).Sum
         $lapAverageMinutes = ($lapTimes | Select -Last 10 | Measure-Object -Average).Average

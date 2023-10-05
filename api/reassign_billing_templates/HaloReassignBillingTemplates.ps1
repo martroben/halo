@@ -68,6 +68,11 @@ $headers = @{
     "halo-app-name" = "halo-web-application"
 }
 
+# Timer to check for token timeout
+$tokenTimer = [Diagnostics.Stopwatch]::StartNew()
+$tokenExpiry = $tokenResponse.expires_in
+
+
 #############################
 # Get all Billing Templates #
 #############################
@@ -138,6 +143,20 @@ foreach ($billingTemplate in $billingTemplates) {
         if ( $applyBillingTemplateResponse.StatusCode -eq 201 ) { 
             $clientName = ($applyBillingTemplateResponse.Content | ConvertFrom-Json).name
             Write-Host "$operationString $clientName (client id: $clientId) - success" -fore green
+        }
+
+        # Refresh token if time to expiry is less than 5 minutes
+        if ($tokenExpiry - $tokenTimer.Elapsed.TotalSeconds -le 300) {
+            Write-Host "Refreshing authorization token"
+            # POST request - authorization token
+            $tokenResponse = Invoke-RestMethod -Method 'POST' -Uri $tokenUrl -Headers $tokenHeaders -Body $tokenBody
+            $tokenTimer = [Diagnostics.Stopwatch]::StartNew()
+            $token = $tokenResponse.access_token
+            $tokenExpiry = $tokenResponse.expires_in
+            $headers = @{
+                "Authorization" = "Bearer " + $token
+                "halo-app-name" = "halo-web-application"
+            }
         }
     }
 }
