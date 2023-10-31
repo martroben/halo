@@ -28,7 +28,7 @@ USERS: Technician info
 ACTIONS: Ticket action info
 	.ActionChargeHours: Hours associated with some charge type on action
 	.ActionNonChargeHours: Hours not associated with a charge type on action
-	.timetaken: Time logged on action
+	.timetaken: Billable time logged on action
 	.faultid: Action ticket id
 	.actionapid: Appointment id if action is associated with an appointment
 	.actioncode: Charge type. Values from LOOKUP table by fid = 17. such that LOOKUP.fcode = ACTIONS.actioncode + 1 (weird)
