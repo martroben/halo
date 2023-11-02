@@ -50,7 +50,7 @@ WorkBlockDurationsCTE   Workblock start and end times with durations
 # HARDCODED VALUES #
 ####################
 
-CAST(<block duration> AS Decimal(18,2))                     Workblock duration is given with two decimal place precision.
+CAST(ROUND(SUM(WorkBlockDurationsCTE.DurationHours), 2) AS Decimal(18,2))   Worked hours are given with two decimal place precision.
 WHERE CAST(date_id AS date) <= DATEADD(DAY, 7, GETDATE())   Only workblocks up to 7 days into the future are given
 
 */
@@ -59,13 +59,13 @@ WHERE CAST(date_id AS date) <= DATEADD(DAY, 7, GETDATE())   Only workblocks up t
 SELECT
     DayFillerCTE.Uname AS Agent,
     DayFillerCTE.Day AS Date,
-    SUM(WorkBlockDurationsCTE.DurationHours) AS HoursLogged
+    CAST(ROUND(SUM(WorkBlockDurationsCTE.DurationHours), 2) AS Decimal(18,2)) AS HoursLogged
 FROM
     /* 7. Add timeblock duration column */
     (SELECT
         *,
         CAST(BlockEnd AS date) AS EventDay,
-        CAST(ROUND(DATEDIFF(second, BlockStart, BlockEnd) / 3600.0, 2) AS Decimal(18,2)) AS DurationHours
+        DATEDIFF(second, BlockStart, BlockEnd) / 3600.0 AS DurationHours
     FROM
         /* 6. Discard all 'overlap' events.
         Pivot each following start and end event back to a single row to get timeblocks */
