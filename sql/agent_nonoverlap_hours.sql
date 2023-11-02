@@ -1,65 +1,76 @@
 /*
-Dev notes:
+Report of agent worked hours per day in a way that the overlapping hours are not double-counted.
 
-# 2023-11-1
+##################
+# RESULT COLUMNS #
+##################
 
-If the action has 0-time (same start and stop time), it screws up the cumulative sum.
-Should filter out 0-time actions in the beginning.
-
-Makes it better, but there's still a problem: when two actions begin at the same time, the cumulative sum is 2.
-Can fix it by making the start condition as index > 0 and cumulative = 0.
-
-Then there will be several begin conditions in a row.
-Can try to aggregate subsequent begin conditions with the earliest date.
-Use lag value of cumulative index - only valid start if it's 0.
-
-Have to make sure that the time window doesn't start with ongoing time block.
-Otherwise the cumulative index will start as -1.
-Removing by assigning "overlap" for EventIndex:-1 | CumulativeIndex: 0 | CumulativeIndexLag: NULL events
-
-Timeblock with no end action in the end might also be a problem.
-
-After removing "overlap" events, there is not much sense using ticket and action numebers anymore
-because there are random gaps.
+Agent               Agent name
+Date                Day
+HoursLogged         Non-overlapping hours from all actions that ended on that day
 
 
-# earlier
+#########################
+# TABLES & COLUMNS USED #
+#########################
 
-Original report uses timetaken field, but to use the overlap handling algorithm, should use ActionArrivalDate and ActionCompletionDate instead.
-How to handle Actions that span from one day to another? Will just log to the day when the action completed (using ActionCompletionDate)
+ACTIONS             All Agent actions logged under tickets
+.Faultid            Ticket id
+.actionnumber       Action sequence number under the ticket
+.who                Agent name
+.whoagentid         Agent id
+.ActionArrivalDate  Action logged time start
+.ActionCompletionDate Action logged time end
 
-Overlap removal algorithm:
-https://stackoverflow.com/questions/58128050/total-duration-time-without-overlapping-time-in-sql-server
+UNAME               Halo dashboard user info (technicians)
+.UName              User name
+.UNum               User id
 
-Checked if timetaken + nonbilltime is the same as ActionCompletionDate - ActionArrivalDate. Seems to be.
-
-Actions don't seem to have unique ID-s. Using a combination of Faultid and actionnumber. False - there is an id column, but a combination might still be better
-
-Might be a good idea to use some user id, rather than who column? whoagentid maybe?
+CALENDAR            Table of dates
+.date_id            Date identifier in YYYY/mm/dd format
 
 
-Calculate cumulative sum by Agent
-https://stackoverflow.com/questions/17971988/sql-server-cumulative-sum-by-group
+#########################################
+# CTE-s USED (Common Table Expressions) #
+#########################################
+
+DaysCTE                 List of all dates in a range
+DayFillerCTE            List of agents with each having a list of dates
+
+AS ActonDatesCTE        Actions and action dates
+EventIndicesCTE         Action start and end times with 1 or -1 as index
+CumulativeIndicesCTE    Action start and end times with cumulative sum over indices
+IndicesCTE              Action start and end times with previous row cumulative sum column added
+WorkBlockEventsCTE      Action start and end times with a column for which are start end or overlap events in workblocks
+WorkBlockCTE            Workblock start and end times
+WorkBlockDurationsCTE   Workblock start and end times with durations
 
 
-Only leave events that are start or end of a batch of actions
-Calculate durations
+####################
+# HARDCODED VALUES #
+####################
 
-Maybe also carry some billing multiplier from actions?
+CAST(<block duration> AS Decimal(18,2))                     Workblock duration is given with two decimal place precision.
+WHERE CAST(date_id AS date) <= DATEADD(DAY, 7, GETDATE())   Only workblocks up to 7 days into the future are given
+
 */
 
-
+/* 9. Sum workblock durations by agent and by day */
 SELECT
     DayFillerCTE.Uname AS Agent,
     DayFillerCTE.Day AS Date,
     SUM(WorkBlockDurationsCTE.DurationHours) AS HoursLogged
 FROM
+    /* 7. Add timeblock duration column */
     (SELECT
         *,
         CAST(BlockEnd AS date) AS EventDay,
         CAST(ROUND(DATEDIFF(second, BlockStart, BlockEnd) / 3600.0, 2) AS Decimal(18,2)) AS DurationHours
     FROM
+        /* 6. Discard all 'overlap' events.
+        Pivot each following start and end event back to a single row to get timeblocks */
         (SELECT
+            /* Have to select specific columns for pivot */
             EventTime,
             who,
             whoagentid,
@@ -67,6 +78,15 @@ FROM
             /* Give same index to each two rows following each other to group same workblock events */
             (ROW_NUMBER() OVER(PARTITION BY whoagentid ORDER BY EventTime) - 1) / 2 AS AgentWorkBlockIndex
         FROM
+            /* 5. Detect time block start and end rows.
+            Timeblock start conditions:
+                EventIndex = 1 - action start
+                CumulativeIndex > 0
+                previous row CumulativeIndex = 0 or NULL - excludes rows where start and end of different events are on the same time
+            Timeblock end conditions:
+                EventIndex = -1 - action end
+                CumulativeIndex = 0
+                previous row CumulativeIndex is not 0 or NULL - excludes cases where data starts with end event. */
             (SELECT
                 *,
                 CASE
@@ -75,15 +95,19 @@ FROM
                     ELSE 'overlap'
                 END AS WorkBlockEvent
             FROM
+                /* 4. Add previous row cumulative sum to each row */
                 (SELECT
                     *,
                     LAG(CumulativeIndex) OVER (PARTITION BY whoagentid ORDER BY EventTime) CumulativeIndexLag
                 FROM
+                    /* 3. Add cumulative sum over the start/end indices (partitioned by agent). */
                     (SELECT
                         *,
                         SUM(EventIndex)
                             OVER (PARTITION BY whoagentid ORDER BY EventTime) AS CumulativeIndex
                     FROM
+                        /* 2. Pivot action start and end times to separate rows.
+                        Assign index 1 to each start time and -1 to each end time. */
                         (SELECT
                             *,
                             CASE
@@ -92,6 +116,7 @@ FROM
                                 ELSE 0
                             END AS EventIndex
                         FROM
+                            /* 1. Select all actions with their start and end times */
                             (SELECT
                                 ACTIONS.Faultid,
                                 ACTIONS.actionnumber,
@@ -116,15 +141,16 @@ FROM
                         ) AS EventIndicesCTE
                     ) AS CumulativeIndicesCTE
                 ) AS IndicesCTE
-            ) AS WorkBlockCTE
+            ) AS WorkBlockEventsCTE
         WHERE WorkBlockEvent <> 'overlap'
-        ) AS WorkBlockIndicesCTE
+        ) AS WorkBlockCTE
     PIVOT
         (MAX(EventTime)
         FOR WorkBlockEvent IN ([BlockStart], [BlockEnd])
         ) AS WorkBlockPivot
     ) AS WorkBlockDurationsCTE
 
+/* 8. Join days with no hours logged for each agent */
 RIGHT JOIN
     (SELECT
         UNAME.Uname,
@@ -135,7 +161,7 @@ RIGHT JOIN
         (SELECT
             CAST(date_id AS date) AS Day
         FROM CALENDAR
-        /* Count days up to 7 days from today */
+        /* Use days up to 7 days into the future */
         WHERE CAST(date_id AS date) <= DATEADD(DAY, 7, GETDATE())
         ) AS DaysCTE
     ) AS DayFillerCTE
